@@ -35,10 +35,16 @@
     #startButton {
       cursor: pointer;  /* Show pointer over start button */
     }
-    @media screen and (max-width: 400px) {
+    @media screen and (max-width: 500px) {
       #header {
-        font-size:10px; 
+        font-size:12px; 
         padding:10px 0 6px 0; 
+      }
+      #branding { 
+        display: block; 
+      }
+      #breaker { 
+        display: none; 
       }
       svg { 
         height: calc(100vh - 24px); 
@@ -48,8 +54,9 @@
 </head>
 <body>
 <div id="header">
-  OK BREAKER &bull; 
-  By <a href="https://christianmontoya.com" target="_blank">Montoya</a> &bull; 
+  <span id="branding">OK BREAKER &bull; 
+  By <a href="https://christianmontoya.com" target="_blank">Montoya</a></span><span id="breaker"> &bull; </span>
+  <span id="highScore"></span>
   <span id="score">Score: 0</span>
 </div>
 <svg id="game" viewBox="0 0 400 600"></svg>
@@ -57,11 +64,13 @@
 <script>
 const svg = document.getElementById('game');
 const scoreEl = document.getElementById('score');
+const highScoreEl = document.getElementById('highScore');
 
 let paddle = { x: 160, width: 80, y: 580 };
 let ball = { x: 200, y: 300, vx: 0, vy: 0, r: 5 };
 let bricks = [];
 let score = 0;
+let highScore = 0;
 let gameStarted = false;
 let ctx = null;
 let startTime = null;
@@ -81,11 +90,20 @@ let safetyLine = null;      // Reference to the safety line element
 const INITIAL_BALL_SPEED = 2.5; // Define constant initial ball speed
 let currentBallSpeed = INITIAL_BALL_SPEED; // Variable current ball speed
 const SPEED_INCREASE = 0.5; // How much to increase speed by
-const POWER_UP_CHANCE = 1/35; // Chance for a brick to drop a power-up
+const POWER_UP_CHANCE = 1/32; // Chance for a brick to drop a power-up
 const POWER_UP_SPEED = INITIAL_BALL_SPEED * 0.4; // Power-up falling speed
 const BULLET_SPEED = INITIAL_BALL_SPEED * 2; // Bullet speed
 const POWER_UP_DURATION = 6000; // Power-up duration in milliseconds
 const BULLET_COOLDOWN = 500; // Time between bullet pairs in milliseconds
+
+// Load high score from localStorage if available
+if (window.localStorage) {
+  const savedHighScore = localStorage.getItem('okBreakerHighScore');
+  if (savedHighScore) {
+    highScore = parseInt(savedHighScore);
+    highScoreEl.textContent = `High Score: ${highScore} • `;
+  }
+}
 
 // Audio setup
 function initAudio() {
@@ -212,13 +230,24 @@ function formatTime(ms) {
 }
 
 function showMessage(message, isGameOver = false) {
+  // Remove any existing message boxes and their contents
+  const existingMessageBox = document.getElementById('messageBox');
+  const existingMessageContent = document.getElementById('messageContent');
+  const existingStartButton = document.getElementById('startButton');
+  const existingStartText = document.getElementById('startText');
+  
+  if (existingMessageBox) svg.removeChild(existingMessageBox);
+  if (existingMessageContent) svg.removeChild(existingMessageContent);
+  if (existingStartButton) svg.removeChild(existingStartButton);
+  if (existingStartText) svg.removeChild(existingStartText);
+
   // Create message box
   const messageBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   messageBox.setAttribute("id", "messageBox");
   messageBox.setAttribute("x", "60");
   messageBox.setAttribute("y", "200");
   messageBox.setAttribute("width", "280");
-  messageBox.setAttribute("height", "100");
+  messageBox.setAttribute("height", isGameOver ? "150" : "100");
   messageBox.setAttribute("rx", "10");
   messageBox.setAttribute("ry", "10");
   messageBox.setAttribute("fill", "#222");
@@ -229,14 +258,14 @@ function showMessage(message, isGameOver = false) {
   // Create a group for all message content
   const messageGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
   messageGroup.setAttribute("id", "messageContent");
-  messageGroup.setAttribute("transform", "translate(200, 254)"); // Center of message box
+  messageGroup.setAttribute("transform", "translate(200, 250)"); // Center of message box
   svg.appendChild(messageGroup);
 
   // Split message into lines and create text elements
   const lines = message.split('\n');
   lines.forEach((line, index) => {
     const messageText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    messageText.setAttribute("y", (index - (lines.length - 1) / 2) * 25); // Center lines vertically
+    messageText.setAttribute("y", (1 + index - (lines.length - 1) / 2) * 28); // Center lines vertically
     messageText.setAttribute("text-anchor", "middle");
     messageText.setAttribute("fill", "#fafafa");
     messageText.setAttribute("font-size", "20");
@@ -248,7 +277,7 @@ function showMessage(message, isGameOver = false) {
   const startButton = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   startButton.setAttribute("id", "startButton");
   startButton.setAttribute("x", "80");
-  startButton.setAttribute("y", "320");
+  startButton.setAttribute("y", "370"); // Move button down for taller message box
   startButton.setAttribute("width", "240");
   startButton.setAttribute("height", "60");
   startButton.setAttribute("rx", "10");
@@ -262,7 +291,7 @@ function showMessage(message, isGameOver = false) {
   const startText = document.createElementNS("http://www.w3.org/2000/svg", "text");
   startText.setAttribute("id", "startText");
   startText.setAttribute("x", "200");
-  startText.setAttribute("y", "360");
+  startText.setAttribute("y", "410"); // Move text down with button
   startText.setAttribute("text-anchor", "middle");
   startText.setAttribute("fill", "#fafafa");
   startText.setAttribute("font-size", "24");
@@ -432,6 +461,9 @@ function updatePowerUps() {
       bullets.splice(index, 1);
     }
   });
+
+  // Check for win condition after bullet hits brick
+  checkWin();
   
   // Fire new bullets if power-up is active
   if (powerUpActive && Date.now() > powerUpEndTime) {
@@ -520,8 +552,32 @@ function update() {
     
     // Check if ball collides with brick
     if (distanceSquared < (ball.r * ball.r)) {
+      // Remove only the collided brick
       svg.removeChild(b.el);
       bricks[i] = null;
+      score += 10 + comboCount;
+      comboCount++;
+      scoreEl.textContent = "Score: " + score;
+      hitBrick = true;
+      playSound(440); // Brick hit sound
+      
+      // Determine which side of the brick was hit
+      let overlapX = ball.r - Math.abs(distanceX);
+      let overlapY = ball.r - Math.abs(distanceY);
+      
+      // If horizontal overlap is smaller, it's a vertical collision
+      if (overlapX < overlapY) {
+        ball.vx *= -1;
+        // Move ball outside brick to prevent sticking
+        ball.x = ball.x < b.x ? b.x - ball.r : b.x + b.w + ball.r;
+      } else {
+        ball.vy *= -1;
+        // Move ball outside brick to prevent sticking
+        ball.y = ball.y < b.y ? b.y - ball.r : b.y + b.h + ball.r;
+      }
+      
+      // Check for win condition after score is updated
+      checkWin();
       
       // Check if we can spawn a power-up
       const canSpawnBullet = !powerUpActive && !powerUps.some(p => p.type === 'bullet');
@@ -539,52 +595,31 @@ function update() {
         }
         createPowerUp(b.x + b.w/2, b.y + b.h/2, type);
       }
-      
-      // Determine which side of the brick was hit
-      let overlapX = ball.r - Math.abs(distanceX);
-      let overlapY = ball.r - Math.abs(distanceY);
-      
-      // If horizontal overlap is smaller, it's a vertical collision
-      if (overlapX < overlapY) {
-        ball.vx *= -1;
-        // Move ball outside brick to prevent sticking
-        ball.x = ball.x < b.x ? b.x - ball.r : b.x + b.w + ball.r;
-      } else {
-        ball.vy *= -1;
-        // Move ball outside brick to prevent sticking
-        ball.y = ball.y < b.y ? b.y - ball.r : b.y + b.h + ball.r;
-      }
-      
-      score += 10 + comboCount;
-      comboCount++;
-      scoreEl.textContent = "Score: " + score;
-      playSound(440); // Brick hit
     }
   });
 
-  // Check for safety line collision
-  if (safetyLineActive && safetyLine) {
-    // Check if ball hits safety line
-    if (ball.y + ball.r >= safetyLine.y && ball.y - ball.r <= safetyLine.y + safetyLine.h) {
-      if (ball.x + ball.r >= safetyLine.x && ball.x - ball.r <= safetyLine.x + safetyLine.w) {
-        // Bounce ball upward
-        ball.vy = -Math.abs(ball.vy);
-        // Play safety line bounce sound
-        playSound(330, 50);
-        // Remove safety line after one hit
-        svg.removeChild(safetyLine);
-        safetyLine = null;
-        safetyLineActive = false;
-      }
+  // Check safety line collision
+  if (safetyLineActive) {
+    const lineY = safetyLine.getAttribute("y1");
+    const lineYNum = parseFloat(lineY);
+    
+    // Check if ball is moving downward and will intersect with the line
+    if (ball.vy > 0 && ball.y + ball.r >= lineYNum && ball.y - ball.r <= lineYNum) {
+      ball.vy = -ball.vy;
+      ball.y = lineYNum - ball.r; // Ensure ball doesn't get stuck in the line
+      playSound(330, 0.05); // Play safety line bounce sound with shorter duration
+      
+      // Remove safety line after one hit
+      svg.removeChild(safetyLine);
+      safetyLine = null;
+      safetyLineActive = false;
     }
   }
 
   // Win condition
   if (bricks.filter(b => b !== null).length === 0) {
     gameOver = true;
-    const timeElapsed = Date.now() - startTime;
     playSound(880, 0.5); // Higher pitch for win
-    showMessage(`You Win!\nFinal Score: ${score}\nTime: ${formatTime(timeElapsed)}`);
     return;
   }
 
@@ -759,6 +794,52 @@ function movePaddle(e) {
   }
   
   drawPaddle();
+}
+
+function checkWin() {
+  if (bricks.every(b => b === null)) {
+    gameOver = true;
+    gameStarted = false;
+    
+    // Clean up any remaining bullets
+    bullets.forEach(bullet => {
+      if (bullet.el && bullet.el.parentNode) {
+        svg.removeChild(bullet.el);
+      }
+    });
+    bullets = [];
+    
+    // Clean up safety line if it exists
+    if (safetyLine && safetyLine.parentNode) {
+      svg.removeChild(safetyLine);
+      safetyLine = null;
+      safetyLineActive = false;
+    }
+    
+    // Clean up any falling power-ups
+    powerUps.forEach(powerUp => {
+      if (powerUp.el && powerUp.el.parentNode) {
+        svg.removeChild(powerUp.el);
+      }
+    });
+    powerUps = [];
+    powerUpActive = false;
+    
+    // Check if this is a new high score
+    let isNewHighScore = false;
+    if (window.localStorage) {
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('okBreakerHighScore', highScore.toString());
+        highScoreEl.textContent = `High Score: ${highScore} • `;
+        isNewHighScore = true;
+      }
+    }
+    
+    const timeElapsed = Date.now() - startTime;
+    const message = `You win!\nScore: ${score}\nTime: ${formatTime(timeElapsed)}\n${isNewHighScore ? 'New high score!' : `High score: ${highScore}`}`;
+    showMessage(message, true);
+  }
 }
 
 init();
