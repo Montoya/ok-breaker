@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#222222" />
+  <meta name="author" content="Christian Montoya">
   <title>OK BREAKER</title>
   <style>
     html, body {
@@ -96,13 +97,18 @@ const BULLET_SPEED = INITIAL_BALL_SPEED * 2; // Bullet speed
 const POWER_UP_DURATION = 6000; // Power-up duration in milliseconds
 const BULLET_COOLDOWN = 500; // Time between bullet pairs in milliseconds
 
-// Load high score from localStorage if available
-if (window.localStorage) {
-  const savedHighScore = localStorage.getItem('okBreakerHighScore');
-  if (savedHighScore) {
-    highScore = parseInt(savedHighScore);
-    highScoreEl.textContent = `High Score: ${highScore} • `;
+// Initialize high score
+try {
+  if (window.localStorage) {
+    const savedHighScore = localStorage.getItem('okBreakerHighScore');
+    if (savedHighScore) {
+      highScore = parseInt(savedHighScore);
+      highScoreEl.textContent = `High Score: ${highScore} • `;
+    }
   }
+} catch (e) {
+  // If localStorage is not available (e.g., in sandboxed context), just continue without high score
+  console.log('High score feature not available');
 }
 
 // Audio setup
@@ -824,20 +830,28 @@ function checkWin() {
     });
     powerUps = [];
     powerUpActive = false;
+
+    const timeElapsed = Date.now() - startTime;
+
+    let message = `You win!\nScore: ${score}\nTime: ${formatTime(timeElapsed)}`;
     
     // Check if this is a new high score
     let isNewHighScore = false;
-    if (window.localStorage) {
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('okBreakerHighScore', highScore.toString());
-        highScoreEl.textContent = `High Score: ${highScore} • `;
-        isNewHighScore = true;
+    try {
+      if (window.localStorage) {
+        if (score > highScore) {
+          highScore = score;
+          localStorage.setItem('okBreakerHighScore', highScore.toString());
+          highScoreEl.textContent = `High Score: ${highScore} • `;
+          isNewHighScore = true;
+        }
+        message = `You win!\nScore: ${score}\nTime: ${formatTime(timeElapsed)}\n${isNewHighScore ? 'New high score!' : `High score: ${highScore}`}`;
       }
+    } catch (e) {
+      // If localStorage is not available, just continue without high score
+      console.log('High score feature not available');
     }
     
-    const timeElapsed = Date.now() - startTime;
-    const message = `You win!\nScore: ${score}\nTime: ${formatTime(timeElapsed)}\n${isNewHighScore ? 'New high score!' : `High score: ${highScore}`}`;
     showMessage(message, true);
   }
 }
