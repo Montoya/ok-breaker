@@ -69,10 +69,20 @@ let gameOver = false;
 let comboCount = 0;  // Track consecutive brick hits
 let initialBrickCount = 0;  // Track initial number of bricks
 let speedIncreaseCount = 0;  // Track how many speed increases have been applied
+let powerUps = [];  // Array to track active power-ups
+let bullets = [];   // Array to track active bullets
+let powerUpActive = false;  // Whether the paddle has the power-up
+let powerUpEndTime = 0;     // When the power-up effect ends
+let lastBulletTime = 0;     // When the last bullets were fired
 
 const INITIAL_BALL_SPEED = 2.5; // Define constant initial ball speed
 let currentBallSpeed = INITIAL_BALL_SPEED; // Variable current ball speed
 const SPEED_INCREASE = 0.5; // How much to increase speed by
+const POWER_UP_CHANCE = 1/50; // Chance for a brick to drop a power-up
+const POWER_UP_SPEED = INITIAL_BALL_SPEED * 0.4; // Power-up falling speed (reduced from 0.75)
+const BULLET_SPEED = INITIAL_BALL_SPEED * 2; // Bullet speed
+const POWER_UP_DURATION = 5000; // Power-up duration in milliseconds
+const BULLET_COOLDOWN = 500; // Time between bullet pairs in milliseconds
 
 // Audio setup
 function initAudio() {
@@ -260,6 +270,138 @@ function showMessage(message, isGameOver = false) {
   startButton.addEventListener("click", startGame);
 }
 
+function createPowerUp(x, y) {
+  const powerUp = {
+    x: x,
+    y: y,
+    vy: POWER_UP_SPEED,
+    el: null
+  };
+  
+  // Create power-up SVG
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  
+  // Create circle
+  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  circle.setAttribute("r", "7.5");
+  circle.setAttribute("fill", "#52ff00");
+  group.appendChild(circle);
+  
+  // Create vertical lines
+  const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line1.setAttribute("x1", "-2.5");
+  line1.setAttribute("y1", "-3.75");
+  line1.setAttribute("x2", "-2.5");
+  line1.setAttribute("y2", "3.75");
+  line1.setAttribute("stroke", "#222");
+  line1.setAttribute("stroke-width", "2.5");
+  group.appendChild(line1);
+  
+  const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line2.setAttribute("x1", "2.5");
+  line2.setAttribute("y1", "-3.75");
+  line2.setAttribute("x2", "2.5");
+  line2.setAttribute("y2", "3.75");
+  line2.setAttribute("stroke", "#222");
+  line2.setAttribute("stroke-width", "2.5");
+  group.appendChild(line2);
+  
+  group.setAttribute("transform", `translate(${x}, ${y})`);
+  svg.appendChild(group);
+  powerUp.el = group;
+  powerUps.push(powerUp);
+}
+
+function createBullet(x, y) {
+  const bullet = {
+    x: x,
+    y: y,
+    vy: -BULLET_SPEED,
+    el: null
+  };
+  
+  const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("width", "4");
+  rect.setAttribute("height", "10");
+  rect.setAttribute("fill", "#52ff00");
+  rect.setAttribute("x", x - 2);
+  rect.setAttribute("y", y);
+  svg.appendChild(rect);
+  bullet.el = rect;
+  bullets.push(bullet);
+}
+
+function updatePowerUps() {
+  // Update existing power-ups
+  powerUps.forEach((powerUp, index) => {
+    powerUp.y += powerUp.vy;
+    powerUp.el.setAttribute("transform", `translate(${powerUp.x}, ${powerUp.y})`);
+    
+    // Check for paddle collision
+    if (powerUp.y + 7.5 >= paddle.y && 
+        powerUp.y - 7.5 <= paddle.y + 10 &&
+        powerUp.x > paddle.x && 
+        powerUp.x < paddle.x + paddle.width) {
+      // Activate power-up
+      powerUpActive = true;
+      powerUpEndTime = Date.now() + POWER_UP_DURATION;
+      lastBulletTime = Date.now();
+      
+      // Remove power-up
+      svg.removeChild(powerUp.el);
+      powerUps.splice(index, 1);
+      playSound(660); // Power-up sound
+    }
+    
+    // Remove if off screen
+    if (powerUp.y > 600) {
+      svg.removeChild(powerUp.el);
+      powerUps.splice(index, 1);
+    }
+  });
+  
+  // Update bullets
+  bullets.forEach((bullet, index) => {
+    bullet.y += bullet.vy;
+    bullet.el.setAttribute("y", bullet.y);
+    
+    // Check for brick collisions
+    let hitBrick = false;
+    bricks.forEach((brick, brickIndex) => {
+      if (!brick) return;
+      
+      if (bullet.x > brick.x && 
+          bullet.x < brick.x + brick.w &&
+          bullet.y > brick.y && 
+          bullet.y < brick.y + brick.h) {
+        // Remove brick
+        svg.removeChild(brick.el);
+        bricks[brickIndex] = null;
+        score += 10;
+        scoreEl.textContent = "Score: " + score;
+        hitBrick = true;
+        playSound(440); // Brick hit sound
+      }
+    });
+    
+    // Remove bullet if it hit a brick or reached the top
+    if (hitBrick || bullet.y < 0) {
+      svg.removeChild(bullet.el);
+      bullets.splice(index, 1);
+    }
+  });
+  
+  // Fire new bullets if power-up is active
+  if (powerUpActive && Date.now() > powerUpEndTime) {
+    powerUpActive = false;
+  } else if (powerUpActive && Date.now() - lastBulletTime >= BULLET_COOLDOWN) {
+    // Create two bullets from paddle
+    createBullet(paddle.x + paddle.width * 0.2, paddle.y);
+    createBullet(paddle.x + paddle.width * 0.8, paddle.y);
+    lastBulletTime = Date.now();
+  }
+}
+
 function update() {
   if (!gameStarted || gameOver) return;
   
@@ -336,6 +478,11 @@ function update() {
       svg.removeChild(b.el);
       bricks[i] = null;
       
+      // Chance to spawn power-up (only if no power-up is active)
+      if (!powerUpActive && Math.random() < POWER_UP_CHANCE) {
+        createPowerUp(b.x + b.w/2, b.y + b.h/2);
+      }
+      
       // Determine which side of the brick was hit
       let overlapX = ball.r - Math.abs(distanceX);
       let overlapY = ball.r - Math.abs(distanceY);
@@ -371,6 +518,8 @@ function update() {
     return;
   }
 
+  updatePowerUps();
+  
   drawBall();
   requestAnimationFrame(update);
 }
@@ -417,6 +566,20 @@ function startGame() {
   drawBall();
   svg.addEventListener("mousemove", movePaddle);
   svg.addEventListener("touchmove", movePaddle);
+  
+  // Reset power-up state
+  powerUps.forEach(p => {
+    if (p.el) svg.removeChild(p.el);
+  });
+  powerUps = [];
+  bullets.forEach(b => {
+    if (b.el) svg.removeChild(b.el);
+  });
+  bullets = [];
+  powerUpActive = false;
+  powerUpEndTime = 0;
+  lastBulletTime = 0;
+  
   update();
 }
 
