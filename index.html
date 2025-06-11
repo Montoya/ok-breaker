@@ -285,8 +285,9 @@ function update() {
 
   // Paddle bounce
   if (ball.y + ball.r >= paddle.y &&
+      ball.y - ball.r <= paddle.y + 10 && // Add check for ball's top edge
       ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
-    // Calculate where the ball hit the paddle (0 to 1)
+    
     const hitPosition = (ball.x - paddle.x) / paddle.width;
     
     // Map hit position to velocity components
@@ -295,13 +296,13 @@ function update() {
     if (hitPosition < 0.5) {
       // Left side of paddle
       const t = hitPosition * 2; // 0 to 1
-      vx = -currentBallSpeed * (0.707 * (1 - t * t)); // -0.707 to 0
-      vy = -currentBallSpeed * (0.707 + t * t * 0.293); // -0.707 to -1
+      vx = -(1 - t * t); // -1 to 0
+      vy = -(1 + t * t); // -1 to -2
     } else {
       // Right side of paddle
-      const t = (hitPosition - 0.5) * 2; // 0 to 1
-      vx = currentBallSpeed * (0.707 * (1 - t * t)); // 0 to 0.707
-      vy = -currentBallSpeed * (0.707 + t * t * 0.293); // -0.707 to -1
+      const t = (1 - hitPosition) * 2; // 1 to 0 (mirror of left side)
+      vx = (1 - t * t); // 0 to 1
+      vy = -(1 + t * t); // -1 to -2
     }
     
     // Normalize to maintain constant speed
@@ -320,13 +321,34 @@ function update() {
   // Brick collisions
   bricks.forEach((b, i) => {
     if (!b) return;
-    if (ball.x > b.x && ball.x < b.x + b.w &&
-        ball.y > b.y && ball.y < b.y + b.h) {
+    
+    // Calculate the closest point on the brick to the ball
+    let closestX = Math.max(b.x, Math.min(ball.x, b.x + b.w));
+    let closestY = Math.max(b.y, Math.min(ball.y, b.y + b.h));
+    
+    // Calculate distance between ball center and closest point
+    let distanceX = ball.x - closestX;
+    let distanceY = ball.y - closestY;
+    let distanceSquared = distanceX * distanceX + distanceY * distanceY;
+    
+    // Check if ball collides with brick
+    if (distanceSquared < (ball.r * ball.r)) {
       svg.removeChild(b.el);
       bricks[i] = null;
-      ball.vy *= -1;
-      score += 10 + comboCount;  // Use current combo count directly
-      comboCount++;  // Increment combo counter after using it
+      
+      // Determine which side of the brick was hit
+      let overlapX = ball.r - Math.abs(distanceX);
+      let overlapY = ball.r - Math.abs(distanceY);
+      
+      // If horizontal overlap is smaller, it's a vertical collision
+      if (overlapX < overlapY) {
+        ball.vx *= -1;
+      } else {
+        ball.vy *= -1;
+      }
+      
+      score += 10 + comboCount;
+      comboCount++;
       scoreEl.textContent = "Score: " + score;
       playSound(440); // Brick hit
     }
