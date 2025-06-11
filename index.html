@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#222222" />
+  <title>OK BREAKER</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      background: #222;
+      height: 100%; overflow: hidden;
+      touch-action: none;
+      font-family: monospace;
+      color: #fafafa;
+    }
+    svg {
+      display: block;
+      width: 100vw;
+      height: calc(100vh - 32px); /* 32px accounts for header height (16px font + 16px padding) */
+      background: #222;
+      cursor: crosshair;  /* Hide cursor over game area */
+    }
+    #header { 
+      width: 600px; 
+      margin: 0 auto; 
+      padding: 8px 0; 
+      font-size:16px; 
+    }
+    a, a:link, a:visited { color: #fafafa; }
+    a:hover { text-decoration: overline; }
+    #startButton {
+      cursor: pointer;  /* Show pointer over start button */
+    }
+    @media screen and (max-width: 400px) {
+      #header {
+        font-size:10px; 
+        padding:10px 0 6px 0; 
+      }
+      svg { 
+        height: calc(100vh - 24px); 
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="header">
+  OK BREAKER &bull; 
+  By <a href="https://christianmontoya.com" target="_blank">Montoya</a> &bull; 
+  <span id="score">Score: 0</span>
+</div>
+<svg id="game" viewBox="0 0 400 600"></svg>
+
+<script>
+const svg = document.getElementById('game');
+const scoreEl = document.getElementById('score');
+
+let paddle = { x: 160, width: 80, y: 580 };
+let ball = { x: 200, y: 300, vx: 0, vy: 0, r: 5 };
+let bricks = [];
+let score = 0;
+let gameStarted = false;
+let ctx = null;
+let startTime = null;
+let gameOver = false;
+let comboCount = 0;  // Track consecutive brick hits
+let initialBrickCount = 0;  // Track initial number of bricks
+let speedIncreaseCount = 0;  // Track how many speed increases have been applied
+
+const INITIAL_BALL_SPEED = 2.5; // Define constant initial ball speed
+let currentBallSpeed = INITIAL_BALL_SPEED; // Variable current ball speed
+const SPEED_INCREASE = 0.5; // How much to increase speed by
+
+// Audio setup
+function initAudio() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playSound(freq, duration = 0.1) {
+  if (!ctx) {
+    initAudio();
+  }
+  if (!ctx) return; // Still no context, can't play sound
+  
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.value = freq;
+  osc.type = 'square';
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+function createBrick(x, y, w, h) {
+  let rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  rect.setAttribute("x", x);
+  rect.setAttribute("y", y);
+  rect.setAttribute("width", w);
+  rect.setAttribute("height", h);
+  rect.setAttribute("fill", "#ccc");
+  svg.appendChild(rect);
+  bricks.push({ x, y, w, h, el: rect });
+}
+
+function buildBricks() {
+  bricks = [];
+  svg.querySelectorAll('rect').forEach(r => svg.removeChild(r));
+
+  // Rainbow colors from bottom to top
+  const colors = ['#f83800', '#ec673a', '#fcfc00', '#52ff00', '#67cdfc', '#ff099d'];
+
+  // Horizontal OK pattern, 7 rows x 18 columns
+  const okPattern = [
+    // O        gap  K
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,0,0,0,1,1,0],
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,0,0,1,1,0,0],
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,0,1,1,0,0,0],
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,1,1,0,0,0,0],
+    [1,1,1,0,0,0,1,1,1, 0, 1,1,1,1,0,0,0,0,0],
+    [1,1,1,0,0,0,1,1,1, 0, 1,1,1,0,0,0,0,0,0],
+    [1,1,1,0,0,0,1,1,1, 0, 1,1,1,1,0,0,0,0,0],
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,1,1,0,0,0,0],
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,0,1,1,0,0,0],
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,0,0,1,1,0,0],
+    [1,1,1,1,1,1,1,1,1, 0, 1,1,0,0,0,0,1,1,0],
+  ];
+
+  const brickWidth = 20; // 18*20=360, fits in 400 with margin
+  const brickHeight = 20;
+  const startX = 20;  // Center horizontally
+  const startY = 60;  // Start higher up
+
+  okPattern.forEach((row, rowIndex) => {
+    row.forEach((cell, colIndex) => {
+      if (cell === 1) {
+        let rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", startX + (colIndex * brickWidth));
+        rect.setAttribute("y", startY + (rowIndex * brickHeight));
+        rect.setAttribute("width", brickWidth - 2);  // Small gap
+        rect.setAttribute("height", brickHeight - 2);
+        rect.setAttribute("fill", colors[rowIndex % colors.length]);
+        svg.appendChild(rect);
+        bricks.push({
+          x: startX + (colIndex * brickWidth),
+          y: startY + (rowIndex * brickHeight),
+          w: brickWidth - 2,
+          h: brickHeight - 2,
+          el: rect
+        });
+      }
+    });
+  });
+  
+  initialBrickCount = bricks.length;  // Store initial brick count
+  speedIncreaseCount = 0;  // Reset speed increase counter
+}
+
+function drawPaddle() {
+  if (!paddle.el) {
+    paddle.el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    paddle.el.setAttribute("y", paddle.y);
+    paddle.el.setAttribute("height", 10);
+    paddle.el.setAttribute("fill", "#52ff00");
+    svg.appendChild(paddle.el);
+  }
+  paddle.el.setAttribute("x", paddle.x);
+  paddle.el.setAttribute("width", paddle.width);
+}
+
+function drawBall() {
+  if (!ball.el) {
+    ball.el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    ball.el.setAttribute("r", ball.r);
+    ball.el.setAttribute("fill", "#fafafa");
+    svg.appendChild(ball.el);
+  }
+  ball.el.setAttribute("cx", ball.x);
+  ball.el.setAttribute("cy", ball.y);
+}
+
+function formatTime(ms) {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  } else {
+    return `${seconds}s`;
+  }
+}
+
+function showMessage(message, isGameOver = false) {
+  // Create message box
+  const messageBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  messageBox.setAttribute("id", "messageBox");
+  messageBox.setAttribute("x", "60");
+  messageBox.setAttribute("y", "200");
+  messageBox.setAttribute("width", "280");
+  messageBox.setAttribute("height", "100");
+  messageBox.setAttribute("rx", "10");
+  messageBox.setAttribute("ry", "10");
+  messageBox.setAttribute("fill", "#222");
+  messageBox.setAttribute("stroke", "#fafafa");
+  messageBox.setAttribute("stroke-width", "2");
+  svg.appendChild(messageBox);
+
+  // Create a group for all message content
+  const messageGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  messageGroup.setAttribute("id", "messageContent");
+  messageGroup.setAttribute("transform", "translate(200, 254)"); // Center of message box
+  svg.appendChild(messageGroup);
+
+  // Split message into lines and create text elements
+  const lines = message.split('\n');
+  lines.forEach((line, index) => {
+    const messageText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    messageText.setAttribute("y", (index - (lines.length - 1) / 2) * 25); // Center lines vertically
+    messageText.setAttribute("text-anchor", "middle");
+    messageText.setAttribute("fill", "#fafafa");
+    messageText.setAttribute("font-size", "20");
+    messageText.textContent = line;
+    messageGroup.appendChild(messageText);
+  });
+
+  // Create play again button
+  const startButton = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  startButton.setAttribute("id", "startButton");
+  startButton.setAttribute("x", "80");
+  startButton.setAttribute("y", "320");
+  startButton.setAttribute("width", "240");
+  startButton.setAttribute("height", "60");
+  startButton.setAttribute("rx", "10");
+  startButton.setAttribute("ry", "10");
+  startButton.setAttribute("fill", "#222");
+  startButton.setAttribute("stroke", "#fafafa");
+  startButton.setAttribute("stroke-width", "2");
+  startButton.style.cursor = "pointer";
+  svg.appendChild(startButton);
+
+  const startText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  startText.setAttribute("id", "startText");
+  startText.setAttribute("x", "200");
+  startText.setAttribute("y", "360");
+  startText.setAttribute("text-anchor", "middle");
+  startText.setAttribute("fill", "#fafafa");
+  startText.setAttribute("font-size", "24");
+  startText.setAttribute("pointer-events", "none");
+  startText.textContent = isGameOver ? "Play Again" : "Play Again";
+  svg.appendChild(startText);
+
+  startButton.addEventListener("click", startGame);
+}
+
+function update() {
+  if (!gameStarted || gameOver) return;
+  
+  // Check if we should increase speed
+  const remainingBricks = bricks.filter(b => b !== null).length;
+  const destroyedBricks = initialBrickCount - remainingBricks;
+  
+  // Increase speed at 1/3 and 2/3 of bricks destroyed
+  if (speedIncreaseCount === 0 && destroyedBricks >= initialBrickCount / 3) {
+    currentBallSpeed += SPEED_INCREASE;
+    speedIncreaseCount++;
+  } else if (speedIncreaseCount === 1 && destroyedBricks >= (initialBrickCount * 2) / 3) {
+    currentBallSpeed += SPEED_INCREASE;
+    speedIncreaseCount++;
+  }
+  
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // Wall bounce
+  if (ball.x < ball.r || ball.x > 400 - ball.r) ball.vx *= -1;
+  if (ball.y < ball.r) ball.vy *= -1;
+
+  // Paddle bounce
+  if (ball.y + ball.r >= paddle.y &&
+      ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+    // Calculate where the ball hit the paddle (0 to 1)
+    const hitPosition = (ball.x - paddle.x) / paddle.width;
+    
+    // Map hit position to velocity components
+    // Center (0.5) = straight up, edges (0 or 1) = 45 degrees, near center = 88 degrees
+    let vx, vy;
+    if (hitPosition < 0.5) {
+      // Left side of paddle
+      const t = hitPosition * 2; // 0 to 1
+      vx = -currentBallSpeed * (0.707 * (1 - t * t)); // -0.707 to 0
+      vy = -currentBallSpeed * (0.707 + t * t * 0.293); // -0.707 to -1
+    } else {
+      // Right side of paddle
+      const t = (hitPosition - 0.5) * 2; // 0 to 1
+      vx = currentBallSpeed * (0.707 * (1 - t * t)); // 0 to 0.707
+      vy = -currentBallSpeed * (0.707 + t * t * 0.293); // -0.707 to -1
+    }
+    
+    // Normalize to maintain constant speed
+    const magnitude = Math.sqrt(vx * vx + vy * vy);
+    ball.vx = (vx / magnitude) * currentBallSpeed;
+    ball.vy = (vy / magnitude) * currentBallSpeed;
+    
+    // Reset combo when paddle is hit
+    comboCount = 0;
+    
+    // Ensure ball is above paddle
+    ball.y = paddle.y - ball.r;
+    playSound(220); // Paddle hit
+  }
+
+  // Brick collisions
+  bricks.forEach((b, i) => {
+    if (!b) return;
+    if (ball.x > b.x && ball.x < b.x + b.w &&
+        ball.y > b.y && ball.y < b.y + b.h) {
+      svg.removeChild(b.el);
+      bricks[i] = null;
+      ball.vy *= -1;
+      score += 10 + comboCount;  // Use current combo count directly
+      comboCount++;  // Increment combo counter after using it
+      scoreEl.textContent = "Score: " + score;
+      playSound(440); // Brick hit
+    }
+  });
+
+  // Win condition
+  if (bricks.filter(b => b !== null).length === 0) {
+    gameOver = true;
+    const timeElapsed = Date.now() - startTime;
+    playSound(880, 0.5); // Higher pitch for win
+    showMessage(`You Win!\nFinal Score: ${score}\nTime: ${formatTime(timeElapsed)}`);
+    return;
+  }
+
+  // Lose condition
+  if (ball.y > 600) {
+    gameOver = true;
+    playSound(110, 0.5); // Lower pitch for loss
+    showMessage(`Game Over!\nFinal Score: ${score}`, true);
+    return;
+  }
+
+  drawBall();
+  requestAnimationFrame(update);
+}
+
+function startGame() {
+  // Initialize audio on first user interaction
+  initAudio();
+  
+  // Remove any existing message elements
+  const existingElements = ['messageBox', 'messageContent', 'startButton', 'startText'];
+  existingElements.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) element.parentNode.removeChild(element);
+  });
+
+  // Reset game state
+  score = 0;
+  comboCount = 0;  // Reset combo counter
+  currentBallSpeed = INITIAL_BALL_SPEED;  // Reset ball speed
+  speedIncreaseCount = 0;  // Reset speed increase counter
+  scoreEl.textContent = "Score: 0";
+  ball.x = 200;
+  ball.y = 300;
+  ball.vx = currentBallSpeed * (Math.random() > 0.5 ? 1 : -1);
+  ball.vy = currentBallSpeed;
+  paddle.x = 160;
+  
+  // Remove old paddle and ball elements if they exist
+  if (paddle.el) {
+    paddle.el.parentNode.removeChild(paddle.el);
+    paddle.el = null;
+  }
+  if (ball.el) {
+    ball.el.parentNode.removeChild(ball.el);
+    ball.el = null;
+  }
+
+  gameStarted = true;
+  gameOver = false;
+  startTime = Date.now();
+  
+  buildBricks();  // Rebuild bricks for new game
+  drawPaddle();
+  drawBall();
+  svg.addEventListener("mousemove", movePaddle);
+  svg.addEventListener("touchmove", movePaddle);
+  update();
+}
+
+function init() {
+  // Draw boundary lines using paths
+  const leftPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  leftPath.setAttribute("d", "M 0 0 L 0 600");
+  leftPath.setAttribute("stroke", "#fafafa");
+  leftPath.setAttribute("stroke-width", "2");
+  leftPath.setAttribute("fill", "none");
+  svg.appendChild(leftPath);
+
+  const rightPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  rightPath.setAttribute("d", "M 400 0 L 400 600");
+  rightPath.setAttribute("stroke", "#fafafa");
+  rightPath.setAttribute("stroke-width", "2");
+  rightPath.setAttribute("fill", "none");
+  svg.appendChild(rightPath);
+
+  const topPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  topPath.setAttribute("d", "M 0 1 L 400 1");
+  topPath.setAttribute("stroke", "#fafafa");
+  topPath.setAttribute("stroke-width", "2");
+  topPath.setAttribute("fill", "none");
+  svg.appendChild(topPath);
+
+  buildBricks();
+
+  // Create start button
+  const startButton = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  startButton.setAttribute("id", "startButton");
+  startButton.setAttribute("x", "110");
+  startButton.setAttribute("y", "250");
+  startButton.setAttribute("width", "180");
+  startButton.setAttribute("height", "60");
+  startButton.setAttribute("rx", "10");
+  startButton.setAttribute("ry", "10");
+  startButton.setAttribute("fill", "#222");
+  startButton.setAttribute("stroke", "#fafafa");
+  startButton.setAttribute("stroke-width", "2");
+  startButton.style.cursor = "pointer";
+  svg.appendChild(startButton);
+
+  const startText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  startText.setAttribute("id", "startText");
+  startText.setAttribute("x", "200");
+  startText.setAttribute("y", "290");
+  startText.setAttribute("text-anchor", "middle");
+  startText.setAttribute("fill", "#fafafa");
+  startText.setAttribute("font-size", "24");
+  startText.setAttribute("pointer-events", "none");
+  startText.textContent = "Start";
+  svg.appendChild(startText);
+
+  // Add click handler for start button
+  startButton.addEventListener("click", startGame);
+}
+
+function movePaddle(e) {
+  let svgRect = svg.getBoundingClientRect();
+  let mouseX;
+  
+  if (e.touches) {
+    mouseX = e.touches[0].clientX;
+  } else {
+    mouseX = e.clientX;
+  }
+  
+  // Get the game area's position and width
+  let gameLeft = svgRect.left + (svgRect.width - 400) / 2;  // Center the game area
+  let gameRight = gameLeft + 400;
+  
+  // Map mouse position directly to game coordinates
+  let gameX;
+  if (mouseX < gameLeft) {
+    gameX = 0;
+  } else if (mouseX > gameRight) {
+    gameX = 400;
+  } else {
+    gameX = mouseX - gameLeft;
+  }
+  
+  // Center paddle on mouse position, but keep it within game boundaries
+  let paddleCenter = gameX;
+  let paddleLeft = paddleCenter - (paddle.width / 2);
+  
+  if (paddleLeft < 0) {
+    paddle.x = 0;
+  } else if (paddleLeft + paddle.width > 400) {
+    paddle.x = 400 - paddle.width;
+  } else {
+    paddle.x = paddleLeft;
+  }
+  
+  drawPaddle();
+}
+
+init();
+</script>
+</body>
+</html>
