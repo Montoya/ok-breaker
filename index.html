@@ -74,14 +74,17 @@ let bullets = [];   // Array to track active bullets
 let powerUpActive = false;  // Whether the paddle has the power-up
 let powerUpEndTime = 0;     // When the power-up effect ends
 let lastBulletTime = 0;     // When the last bullets were fired
+let safetyLineActive = false; // Whether the safety line is active
+let safetyLineEndTime = 0;   // When the safety line effect ends
+let safetyLine = null;      // Reference to the safety line element
 
 const INITIAL_BALL_SPEED = 2.5; // Define constant initial ball speed
 let currentBallSpeed = INITIAL_BALL_SPEED; // Variable current ball speed
 const SPEED_INCREASE = 0.5; // How much to increase speed by
-const POWER_UP_CHANCE = 1/50; // Chance for a brick to drop a power-up
-const POWER_UP_SPEED = INITIAL_BALL_SPEED * 0.4; // Power-up falling speed (reduced from 0.75)
+const POWER_UP_CHANCE = 1/35; // Chance for a brick to drop a power-up
+const POWER_UP_SPEED = INITIAL_BALL_SPEED * 0.4; // Power-up falling speed
 const BULLET_SPEED = INITIAL_BALL_SPEED * 2; // Bullet speed
-const POWER_UP_DURATION = 5000; // Power-up duration in milliseconds
+const POWER_UP_DURATION = 6000; // Power-up duration in milliseconds
 const BULLET_COOLDOWN = 500; // Time between bullet pairs in milliseconds
 
 // Audio setup
@@ -270,12 +273,13 @@ function showMessage(message, isGameOver = false) {
   startButton.addEventListener("click", startGame);
 }
 
-function createPowerUp(x, y) {
+function createPowerUp(x, y, type = 'bullet') {
   const powerUp = {
     x: x,
     y: y,
     vy: POWER_UP_SPEED,
-    el: null
+    el: null,
+    type: type
   };
   
   // Create power-up SVG
@@ -284,27 +288,39 @@ function createPowerUp(x, y) {
   // Create circle
   const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
   circle.setAttribute("r", "7.5");
-  circle.setAttribute("fill", "#52ff00");
+  circle.setAttribute("fill", type === 'bullet' ? "#52ff00" : "#67cdfc");
   group.appendChild(circle);
   
-  // Create vertical lines
-  const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  line1.setAttribute("x1", "-2.5");
-  line1.setAttribute("y1", "-3.75");
-  line1.setAttribute("x2", "-2.5");
-  line1.setAttribute("y2", "3.75");
-  line1.setAttribute("stroke", "#222");
-  line1.setAttribute("stroke-width", "2.5");
-  group.appendChild(line1);
-  
-  const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  line2.setAttribute("x1", "2.5");
-  line2.setAttribute("y1", "-3.75");
-  line2.setAttribute("x2", "2.5");
-  line2.setAttribute("y2", "3.75");
-  line2.setAttribute("stroke", "#222");
-  line2.setAttribute("stroke-width", "2.5");
-  group.appendChild(line2);
+  if (type === 'bullet') {
+    // Create vertical lines for bullet power-up
+    const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line1.setAttribute("x1", "-2.5");
+    line1.setAttribute("y1", "-3.75");
+    line1.setAttribute("x2", "-2.5");
+    line1.setAttribute("y2", "3.75");
+    line1.setAttribute("stroke", "#222");
+    line1.setAttribute("stroke-width", "2.5");
+    group.appendChild(line1);
+    
+    const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line2.setAttribute("x1", "2.5");
+    line2.setAttribute("y1", "-3.75");
+    line2.setAttribute("x2", "2.5");
+    line2.setAttribute("y2", "3.75");
+    line2.setAttribute("stroke", "#222");
+    line2.setAttribute("stroke-width", "2.5");
+    group.appendChild(line2);
+  } else {
+    // Create horizontal line for safety line power-up
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", "-3.75");
+    line.setAttribute("y1", "0");
+    line.setAttribute("x2", "3.75");
+    line.setAttribute("y2", "0");
+    line.setAttribute("stroke", "#222");
+    line.setAttribute("stroke-width", "2.5");
+    group.appendChild(line);
+  }
   
   group.setAttribute("transform", `translate(${x}, ${y})`);
   svg.appendChild(group);
@@ -331,32 +347,58 @@ function createBullet(x, y) {
   bullets.push(bullet);
 }
 
+function createSafetyLine() {
+  if (safetyLine) {
+    svg.removeChild(safetyLine);
+  }
+  
+  safetyLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  safetyLine.setAttribute("x1", "0");
+  safetyLine.setAttribute("y1", paddle.y + 5); // Center of paddle
+  safetyLine.setAttribute("x2", "400");
+  safetyLine.setAttribute("y2", paddle.y + 5);
+  safetyLine.setAttribute("stroke", "#67cdfc");
+  safetyLine.setAttribute("stroke-width", "2");
+  safetyLine.setAttribute("stroke-dasharray", "5,5"); // Make it dashed
+  svg.appendChild(safetyLine);
+}
+
+function updateSafetyLine() {
+  if (safetyLineActive && safetyLine) {
+    // Update safety line position to follow paddle
+    safetyLine.x = paddle.x + paddle.w/2 - safetyLine.w/2;
+    safetyLine.y = paddle.y - safetyLine.h;
+  }
+}
+
 function updatePowerUps() {
   // Update existing power-ups
-  powerUps.forEach((powerUp, index) => {
-    powerUp.y += powerUp.vy;
-    powerUp.el.setAttribute("transform", `translate(${powerUp.x}, ${powerUp.y})`);
+  powerUps.forEach((p, i) => {
+    p.y += POWER_UP_SPEED;
+    p.el.setAttribute("transform", `translate(${p.x}, ${p.y})`);
     
-    // Check for paddle collision
-    if (powerUp.y + 7.5 >= paddle.y && 
-        powerUp.y - 7.5 <= paddle.y + 10 &&
-        powerUp.x > paddle.x && 
-        powerUp.x < paddle.x + paddle.width) {
-      // Activate power-up
-      powerUpActive = true;
-      powerUpEndTime = Date.now() + POWER_UP_DURATION;
-      lastBulletTime = Date.now();
-      
-      // Remove power-up
-      svg.removeChild(powerUp.el);
-      powerUps.splice(index, 1);
-      playSound(660); // Power-up sound
+    // Check if power-up hits paddle
+    if (p.y + 7.5 >= paddle.y && p.y - 7.5 <= paddle.y + 10) {
+      if (p.x + 7.5 >= paddle.x && p.x - 7.5 <= paddle.x + paddle.width) {
+        // Remove power-up
+        svg.removeChild(p.el);
+        powerUps.splice(i, 1);
+        
+        // Activate power-up effect
+        if (p.type === 'bullet') {
+          powerUpActive = true;
+          powerUpEndTime = Date.now() + POWER_UP_DURATION;
+        } else if (p.type === 'safety') {
+          safetyLineActive = true;
+          createSafetyLine();
+        }
+      }
     }
     
     // Remove if off screen
-    if (powerUp.y > 600) {
-      svg.removeChild(powerUp.el);
-      powerUps.splice(index, 1);
+    if (p.y > svg.viewBox.baseVal.height) {
+      svg.removeChild(p.el);
+      powerUps.splice(i, 1);
     }
   });
   
@@ -400,6 +442,9 @@ function updatePowerUps() {
     createBullet(paddle.x + paddle.width * 0.8, paddle.y);
     lastBulletTime = Date.now();
   }
+  
+  // Update safety line
+  updateSafetyLine();
 }
 
 function update() {
@@ -478,9 +523,21 @@ function update() {
       svg.removeChild(b.el);
       bricks[i] = null;
       
-      // Chance to spawn power-up (only if no power-up is active)
-      if (!powerUpActive && Math.random() < POWER_UP_CHANCE) {
-        createPowerUp(b.x + b.w/2, b.y + b.h/2);
+      // Check if we can spawn a power-up
+      const canSpawnBullet = !powerUpActive && !powerUps.some(p => p.type === 'bullet');
+      const canSpawnSafety = !safetyLineActive && !powerUps.some(p => p.type === 'safety');
+      
+      if ((canSpawnBullet || canSpawnSafety) && Math.random() < POWER_UP_CHANCE) {
+        // Randomly choose between available power-up types
+        let type;
+        if (canSpawnBullet && canSpawnSafety) {
+          type = Math.random() < 0.5 ? 'bullet' : 'safety';
+        } else if (canSpawnBullet) {
+          type = 'bullet';
+        } else {
+          type = 'safety';
+        }
+        createPowerUp(b.x + b.w/2, b.y + b.h/2, type);
       }
       
       // Determine which side of the brick was hit
@@ -490,8 +547,12 @@ function update() {
       // If horizontal overlap is smaller, it's a vertical collision
       if (overlapX < overlapY) {
         ball.vx *= -1;
+        // Move ball outside brick to prevent sticking
+        ball.x = ball.x < b.x ? b.x - ball.r : b.x + b.w + ball.r;
       } else {
         ball.vy *= -1;
+        // Move ball outside brick to prevent sticking
+        ball.y = ball.y < b.y ? b.y - ball.r : b.y + b.h + ball.r;
       }
       
       score += 10 + comboCount;
@@ -500,6 +561,23 @@ function update() {
       playSound(440); // Brick hit
     }
   });
+
+  // Check for safety line collision
+  if (safetyLineActive && safetyLine) {
+    // Check if ball hits safety line
+    if (ball.y + ball.r >= safetyLine.y && ball.y - ball.r <= safetyLine.y + safetyLine.h) {
+      if (ball.x + ball.r >= safetyLine.x && ball.x - ball.r <= safetyLine.x + safetyLine.w) {
+        // Bounce ball upward
+        ball.vy = -Math.abs(ball.vy);
+        // Play safety line bounce sound
+        playSound(330, 50);
+        // Remove safety line after one hit
+        svg.removeChild(safetyLine);
+        safetyLine = null;
+        safetyLineActive = false;
+      }
+    }
+  }
 
   // Win condition
   if (bricks.filter(b => b !== null).length === 0) {
@@ -510,8 +588,8 @@ function update() {
     return;
   }
 
-  // Lose condition
-  if (ball.y > 600) {
+  // Lose condition (only if safety line is not active)
+  if (ball.y > 600 && !safetyLineActive) {
     gameOver = true;
     playSound(110, 0.5); // Lower pitch for loss
     showMessage(`Game Over!\nFinal Score: ${score}`, true);
@@ -579,6 +657,12 @@ function startGame() {
   powerUpActive = false;
   powerUpEndTime = 0;
   lastBulletTime = 0;
+  safetyLineActive = false;
+  safetyLineEndTime = 0;
+  if (safetyLine) {
+    svg.removeChild(safetyLine);
+    safetyLine = null;
+  }
   
   update();
 }
