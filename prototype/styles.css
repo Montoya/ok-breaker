@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("assets/fonts/JetBrainsMono-VariableFont_wght.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   --ink: #f6f4eb;
@@ -11,10 +19,10 @@
   --cyan: #35d9ff;
   --pink: #ff3da5;
   --red: #ff4554;
-  --shadow: 0 22px 80px rgba(0, 0, 0, 0.42);
   --game-width: 400px;
   --game-height: 700px;
-  font-family: "SFMono-Regular", "Roboto Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --mono-font: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  font-family: var(--mono-font);
   font-synthesis: none;
 }
 
@@ -37,6 +45,8 @@ body {
     linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
     radial-gradient(circle at 50% -20%, #333339 0, var(--black) 55%);
   background-size: 20px 20px, 20px 20px, auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -80,9 +90,9 @@ a:focus-visible {
   align-items: center;
   color: var(--ink);
   text-decoration: none;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: .13em;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
 }
 
 .brand-mark {
@@ -92,23 +102,37 @@ a:focus-visible {
   place-items: center;
   color: var(--black);
   background: var(--acid);
-  box-shadow: 3px 3px 0 var(--pink);
-  font-size: 11px;
-  letter-spacing: -.08em;
+  border: 3px solid #eaffb9;
+  border-right-color: #5a8318;
+  border-bottom-color: #5a8318;
+  font-size: 9px;
+  letter-spacing: -.12em;
 }
 
 .icon-button,
 .back-button {
-  border: 1px solid var(--line);
-  background: var(--surface-2);
+  border: 3px solid;
+  border-color: #74747c #09090a #09090a #74747c;
+  background: #29292e;
+  box-shadow: none;
   cursor: pointer;
+  transition: border-color 55ms linear, background-color 55ms linear;
+}
+
+.icon-button:active,
+.back-button:active,
+.tool-button:not(:disabled):active {
+  border-color: #09090a #74747c #74747c #09090a;
+  background: #222226;
+  box-shadow: none;
 }
 
 .icon-button {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  font-size: 20px;
+  border-radius: 0;
+  font-family: var(--mono-font);
+  font-size: 18px;
 }
 
 .icon-button[aria-pressed="true"] {
@@ -143,9 +167,9 @@ a:focus-visible {
   margin: 0 0 4px;
   color: var(--muted);
   font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: .14em;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .08em;
 }
 
 h1,
@@ -161,13 +185,15 @@ h2 {
 }
 
 .post-context h1 {
-  font-size: 21px;
-  letter-spacing: -.04em;
+  font-size: 20px;
+  letter-spacing: -.05em;
 }
 
 .post-badge {
-  padding: 6px 8px;
-  border: 1px solid var(--line);
+  padding: 7px 8px;
+  border: 3px solid #55555c;
+  border-right-color: #111113;
+  border-bottom-color: #111113;
   color: var(--muted);
   background: rgba(23,23,25,.75);
   font-size: 10px;
@@ -175,19 +201,19 @@ h2 {
 
 .post-card,
 .screen {
-  border: 1px solid #45454b;
+  border: 4px solid #525259;
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .post-card {
-  padding: 10px;
+  padding: 0;
 }
 
 .art-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 0;
+  border-bottom: 4px solid #525259;
   background: #121214;
 }
 
@@ -217,13 +243,13 @@ h2 {
   min-height: 66px;
   justify-content: space-between;
   gap: 18px;
-  padding: 10px 4px 8px;
+  padding: 13px 12px 10px;
 }
 
 .level-name {
   margin: 0 0 4px;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .byline,
@@ -236,6 +262,7 @@ h2 {
 .byline {
   margin: 0;
   font-size: 11px;
+  line-height: 1.6;
 }
 
 .mini-stat {
@@ -249,7 +276,8 @@ h2 {
   display: block;
   color: var(--dim);
   font-size: 9px;
-  letter-spacing: .12em;
+  line-height: 1.5;
+  letter-spacing: .08em;
 }
 
 .mini-stat strong {
@@ -262,20 +290,32 @@ h2 {
   gap: 8px;
 }
 
+.post-actions {
+  padding: 0 10px 12px;
+}
+
 .arcade-button {
+  position: relative;
   min-height: 48px;
-  border: 1px solid var(--ink);
+  --button-face: #2b2b30;
+  --button-highlight: #77777f;
+  --button-shadow: #0a0a0c;
+  border: 4px solid;
+  border-color: var(--button-highlight) var(--button-shadow) var(--button-shadow) var(--button-highlight);
   border-radius: 0;
+  background: var(--button-face);
+  box-shadow: none;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: .1em;
-  transition: transform 100ms ease, box-shadow 100ms ease, opacity 100ms ease;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-shadow: none;
+  transition: border-color 55ms linear, background-color 55ms linear, opacity 100ms ease;
 }
 
 .arcade-button:not(:disabled):active {
-  transform: translate(2px, 2px);
-  box-shadow: none;
+  border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
+  background: color-mix(in srgb, var(--button-face) 88%, #000);
 }
 
 .arcade-button:disabled {
@@ -285,16 +325,29 @@ h2 {
 
 .arcade-button.primary {
   flex: 1.25;
+  --button-face: #b6ff3b;
+  --button-highlight: #efffce;
+  --button-shadow: #496d12;
   color: var(--black);
-  border-color: var(--acid);
-  background: var(--acid);
-  box-shadow: 3px 3px 0 #5a8318;
 }
 
 .arcade-button.secondary {
   flex: 1;
-  background: #29292e;
-  box-shadow: 3px 3px 0 #09090a;
+}
+
+.button-icon {
+  display: inline-block;
+  margin-right: 6px;
+  font-family: var(--mono-font);
+  font-size: 14px;
+  line-height: 1;
+  vertical-align: -1px;
+  text-shadow: none;
+}
+
+.hammer-icon {
+  font-family: "Arial Unicode MS", "Segoe UI Symbol", sans-serif;
+  font-size: 15px;
 }
 
 .prototype-note,
@@ -302,7 +355,7 @@ h2 {
   margin: 14px 0 0;
   text-align: center;
   font-size: 10px;
-  line-height: 1.5;
+  line-height: 1.8;
 }
 
 .screen {
@@ -314,7 +367,7 @@ h2 {
   min-height: 58px;
   gap: 10px;
   padding: 9px 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 4px solid #525259;
 }
 
 .back-button {
@@ -322,7 +375,8 @@ h2 {
   width: 36px;
   height: 36px;
   color: var(--ink);
-  font-size: 21px;
+  font-family: var(--mono-font);
+  font-size: 20px;
 }
 
 .screen-heading {
@@ -332,7 +386,7 @@ h2 {
 
 .screen-heading h1 {
   overflow: hidden;
-  font-size: 15px;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -349,14 +403,14 @@ h2 {
   display: block;
   color: var(--cyan);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .score-strip {
   justify-content: space-between;
   min-height: 52px;
   padding: 7px 13px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 4px solid #525259;
   background: #111113;
 }
 
@@ -375,7 +429,7 @@ h2 {
 .score-strip strong {
   display: block;
   margin-top: 2px;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .combo-stat strong {
@@ -389,17 +443,6 @@ h2 {
   overflow: hidden;
   background: #111113;
   touch-action: none;
-}
-
-.game-stage::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  opacity: .16;
-  background: repeating-linear-gradient(to bottom, transparent 0, transparent 3px, #000 4px);
-  mix-blend-mode: multiply;
 }
 
 #gameCanvas {
@@ -434,20 +477,21 @@ h2 {
   margin-bottom: 7px;
   color: var(--pink);
   font-size: 11px;
-  letter-spacing: .14em;
+  letter-spacing: .05em;
 }
 
 .game-overlay strong {
   color: var(--ink);
-  font-size: clamp(21px, 7vw, 29px);
+  font-size: clamp(21px, 6vw, 28px);
+  line-height: 1.45;
   letter-spacing: -.04em;
-  text-shadow: 3px 3px 0 #000;
 }
 
 .game-overlay #overlayHint {
   margin-top: 8px;
   color: var(--muted);
   font-size: 10px;
+  line-height: 1.8;
 }
 
 .game-overlay.is-running {
@@ -458,7 +502,7 @@ h2 {
   min-height: 42px;
   justify-content: space-between;
   padding: 7px 10px;
-  border-top: 1px solid var(--line);
+  border-top: 4px solid #525259;
   color: var(--dim);
   font-size: 9px;
   letter-spacing: .08em;
@@ -473,7 +517,6 @@ kbd {
   border: 1px solid var(--line);
   background: #242428;
   color: var(--ink);
-  box-shadow: 0 2px 0 #050506;
 }
 
 .text-button {
@@ -481,7 +524,7 @@ kbd {
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: .1em;
 }
 
@@ -491,15 +534,15 @@ kbd {
 
 .creator-help {
   margin: 10px 14px;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.7;
 }
 
 .editor-frame {
   width: calc(100% - 20px);
   margin: 0 10px;
   padding: 7px;
-  border: 1px solid var(--line);
+  border: 4px solid #525259;
   background: #101012;
   touch-action: none;
 }
@@ -556,7 +599,7 @@ kbd {
 
 .palette {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 5px;
 }
 
@@ -565,16 +608,14 @@ kbd {
   aspect-ratio: 1;
   min-width: 0;
   padding: 0;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background: var(--swatch);
   cursor: pointer;
-  box-shadow: inset 0 -4px 0 rgba(0,0,0,.2);
 }
 
 .swatch[aria-pressed="true"] {
   border-color: var(--ink);
   transform: translateY(-3px);
-  box-shadow: 0 3px 0 var(--ink), inset 0 -4px 0 rgba(0,0,0,.2);
 }
 
 .editor-tools {
@@ -585,14 +626,17 @@ kbd {
 .tool-button {
   flex: 1;
   min-height: 38px;
-  border: 1px solid var(--line);
-  background: #242428;
+  border: 3px solid;
+  border-color: #74747c #09090a #09090a #74747c;
+  background: #29292e;
+  box-shadow: none;
   cursor: pointer;
   font-size: 15px;
+  transition: border-color 55ms linear, background-color 55ms linear, opacity 100ms ease;
 }
 
 .tool-button span {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: .08em;
 }
 
@@ -612,11 +656,11 @@ kbd {
 .editor-message {
   margin: 12px 10px 0;
   padding: 10px;
-  border: 1px solid var(--cyan);
+  border: 4px solid var(--cyan);
   background: rgba(53,217,255,.08);
   color: var(--ink);
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.8;
 }
 
 .editor-message a {
@@ -627,11 +671,10 @@ kbd {
 .preview-dialog {
   width: min(calc(100% - 28px), 400px);
   padding: 10px;
-  border: 1px solid #55555c;
+  border: 4px solid #77777f;
   border-radius: 0;
   color: var(--ink);
   background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
 .preview-dialog::backdrop {
@@ -645,7 +688,7 @@ kbd {
 }
 
 .dialog-header h2 {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .preview-dialog .arcade-button {
@@ -661,12 +704,12 @@ kbd {
   width: min(calc(100% - 32px), 368px);
   padding: 12px;
   transform: translateX(-50%);
-  border: 1px solid var(--acid);
+  border: 4px solid var(--acid);
   background: #181b14;
-  box-shadow: 4px 4px 0 #000;
   color: var(--ink);
   text-align: center;
   font-size: 11px;
+  line-height: 1.7;
 }
 
 @media (max-width: 420px) {

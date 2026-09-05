@@ -19,3 +19,5 @@ Routes are represented by URL fragments:
 - `#create` — 18 × 16 board editor with a 16 × 14 drawable area
 
 Boards and per-board best scores are stored in browser local storage. **Post board** is a local simulation and makes no Reddit or network request.
+
+The locally embedded **JetBrains Mono** variable font comes from Google Fonts and is distributed under the SIL Open Font License. Its license is saved beside the font in `assets/fonts/JetBrainsMono-OFL.txt`.

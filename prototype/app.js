@@ -10,6 +10,7 @@ const MAX_FRAME_TIME = 0.08;
 const BASE_SPEED = 240;
 const COMBO_GROWTH = 1.15;
 const STORAGE_PREFIX = "art-breaker-prototype";
+const LASER_COLOR = "#ff3da5";
 
 const PALETTE = [
   { name: "Red", hex: "#ff4554" },
@@ -21,10 +22,14 @@ const PALETTE = [
   { name: "Blue", hex: "#4387ff" },
   { name: "Violet", hex: "#8f6bff" },
   { name: "Magenta", hex: "#df4dff" },
-  { name: "Pink", hex: "#ff3da5" },
+  { name: "Hot Pink", hex: "#ff3da5" },
   { name: "Gray", hex: "#92939c" },
   { name: "White", hex: "#f6f4eb" },
+  { name: "Pink", hex: "#ff91c8" },
+  { name: "Brown", hex: "#9a5b3f" },
 ];
+
+const EDITOR_PALETTE_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 11, 12];
 
 const dom = {
   views: [...document.querySelectorAll("[data-view]")],
@@ -77,7 +82,7 @@ function makeSeedBoard() {
 }
 
 function canonicalBoard(board) {
-  return `v1:${COLUMNS}x${ROWS}:${board.map((value) => value.toString(13)).join("")}`;
+  return `v2:${COLUMNS}x${ROWS}:${board.map((value) => value.toString(16)).join("")}`;
 }
 
 function hashBoard(board) {
@@ -133,10 +138,6 @@ function drawBoardPreview(canvas, board, showGrid = false) {
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#111113";
   context.fillRect(0, 0, canvas.width, canvas.height);
-
-  context.strokeStyle = "#3b3b40";
-  context.lineWidth = 2;
-  context.strokeRect(BOARD_X - 1, BOARD_Y - 1, COLUMNS * CELL + 2, ROWS * CELL + 2);
 
   for (let row = 0; row < ROWS; row += 1) {
     for (let column = 0; column < COLUMNS; column += 1) {
@@ -340,7 +341,7 @@ class ArtBreakerGame {
     this.bullets = [];
     this.laserUntil = 0;
     this.shotTimer = 0;
-    this.shieldActive = false;
+    this.shieldUntil = 0;
     this.lastWallSound = -1;
     this.best = getBest(this.record.hash);
     this.bricks = this.record.board.map((value, index) => ({
@@ -484,12 +485,12 @@ class ArtBreakerGame {
     }
 
     const shieldY = 676;
-    if (this.shieldActive && this.ball.vy > 0
+    if (this.simulationTime < this.shieldUntil && this.ball.vy > 0
       && previous.y + this.ball.radius <= shieldY
       && this.ball.y + this.ball.radius >= shieldY) {
       this.ball.y = shieldY - this.ball.radius;
       this.ball.vy = -Math.abs(this.ball.vy);
-      this.shieldActive = false;
+      this.shieldUntil = 0;
       this.shake = Math.max(this.shake, 5);
       this.burst(this.ball.x, shieldY, "#35d9ff", 20, 150);
       audio.effect("shield");
@@ -550,7 +551,9 @@ class ArtBreakerGame {
     this.burst(brick.x + brick.width / 2, brick.y + brick.height / 2, color, source === "laser" ? 5 : 9, 115);
     if (points >= 300 || this.combo % 5 === 0) this.addFloater(brick.x + 9, brick.y, `+${formatScore(points)}`, color);
     this.shake = Math.max(this.shake, Math.min(3.5, 0.8 + this.combo * 0.04));
-    audio.effect(this.combo % 10 === 0 ? "combo" : "brick", brick.value);
+    const row = Math.floor(brick.index / COLUMNS);
+    const pitchStep = ROWS - 1 - row;
+    audio.effect(this.combo % 10 === 0 ? "combo" : "brick", pitchStep);
     this.applySpeedTier();
     this.updateHud();
 
@@ -598,10 +601,10 @@ class ArtBreakerGame {
           this.laserUntil = Math.max(this.laserUntil, this.simulationTime) + 7;
           this.shotTimer = 0;
         } else {
-          this.shieldActive = true;
+          this.shieldUntil = Math.max(this.shieldUntil, this.simulationTime) + 12;
         }
-        this.addFloater(power.x, power.y, power.type === "laser" ? "LASER!" : "SAFETY!", power.type === "laser" ? "#b6ff3b" : "#35d9ff");
-        this.burst(power.x, power.y, power.type === "laser" ? "#b6ff3b" : "#35d9ff", 14, 130);
+        this.addFloater(power.x, power.y, power.type === "laser" ? "LASER!" : "SAFETY!", power.type === "laser" ? LASER_COLOR : "#35d9ff");
+        this.burst(power.x, power.y, power.type === "laser" ? LASER_COLOR : "#35d9ff", 14, 130);
         this.powerUps.splice(index, 1);
         audio.effect("pickup");
       } else if (power.y - power.radius > HEIGHT) {
@@ -647,7 +650,7 @@ class ArtBreakerGame {
     this.bullets = [];
     this.powerUps = [];
     this.laserUntil = 0;
-    this.shieldActive = false;
+    this.shieldUntil = 0;
     if (this.score > this.best) {
       this.best = this.score;
       setBest(this.record.hash, this.best);
@@ -749,7 +752,7 @@ class ArtBreakerGame {
       context.fillRect(brick.x + 2, brick.y + brick.height - 3, brick.width - 4, 2);
     }
 
-    if (this.shieldActive) {
+    if (this.simulationTime < this.shieldUntil) {
       context.save();
       context.strokeStyle = "#35d9ff";
       context.lineWidth = 2;
@@ -763,30 +766,30 @@ class ArtBreakerGame {
     }
 
     for (const power of this.powerUps) {
-      const color = power.type === "laser" ? "#b6ff3b" : "#35d9ff";
+      const color = power.type === "laser" ? LASER_COLOR : "#35d9ff";
       context.fillStyle = color;
       context.beginPath();
       context.arc(power.x, power.y, power.radius, 0, Math.PI * 2);
       context.fill();
       context.fillStyle = "#111113";
-      context.font = "bold 9px monospace";
+      context.font = '700 11px "JetBrains Mono", monospace';
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.fillText(power.type === "laser" ? "L" : "S", power.x, power.y + 0.5);
     }
 
-    context.fillStyle = "#b6ff3b";
+    context.fillStyle = LASER_COLOR;
     for (const bullet of this.bullets) context.fillRect(bullet.x - 2, bullet.y, 4, 10);
 
-    if (this.simulationTime < this.laserUntil) {
-      context.fillStyle = "#b6ff3b";
-      context.fillRect(this.paddle.x + 10, this.paddle.y - 4, 6, 5);
-      context.fillRect(this.paddle.x + this.paddle.width - 16, this.paddle.y - 4, 6, 5);
-    }
     context.fillStyle = "#b6ff3b";
     context.fillRect(this.paddle.x, this.paddle.y, this.paddle.width, this.paddle.height);
     context.fillStyle = "rgba(255,255,255,.35)";
     context.fillRect(this.paddle.x + 3, this.paddle.y + 2, this.paddle.width - 6, 2);
+    if (this.simulationTime < this.laserUntil) {
+      context.fillStyle = LASER_COLOR;
+      context.fillRect(this.paddle.x + 10, this.paddle.y + 2, 6, this.paddle.height - 4);
+      context.fillRect(this.paddle.x + this.paddle.width - 16, this.paddle.y + 2, 6, this.paddle.height - 4);
+    }
 
     context.shadowColor = "rgba(246,244,235,.7)";
     context.shadowBlur = 8;
@@ -803,7 +806,7 @@ class ArtBreakerGame {
     }
     context.globalAlpha = 1;
 
-    context.font = "bold 11px monospace";
+    context.font = '700 12px "JetBrains Mono", monospace';
     context.textAlign = "center";
     for (const floater of this.floaters) {
       context.globalAlpha = Math.max(0, floater.life / floater.maxLife);
@@ -813,10 +816,17 @@ class ArtBreakerGame {
     context.globalAlpha = 1;
 
     if (this.simulationTime < this.laserUntil) {
-      context.fillStyle = "#b6ff3b";
-      context.font = "bold 9px monospace";
+      context.fillStyle = LASER_COLOR;
+      context.font = '700 10px "JetBrains Mono", monospace';
       context.textAlign = "left";
       context.fillText(`LASER ${Math.max(0, this.laserUntil - this.simulationTime).toFixed(1)}s`, 10, 18);
+    }
+    if (this.simulationTime < this.shieldUntil) {
+      context.fillStyle = "#35d9ff";
+      context.font = '700 10px "JetBrains Mono", monospace';
+      context.textAlign = "left";
+      const y = this.simulationTime < this.laserUntil ? 32 : 18;
+      context.fillText(`SAFETY ${Math.max(0, this.shieldUntil - this.simulationTime).toFixed(1)}s`, 10, y);
     }
     context.restore();
   }
@@ -905,18 +915,19 @@ function buildEditor() {
     editorCells.push(button);
   }
 
-  PALETTE.forEach((color, index) => {
+  EDITOR_PALETTE_ORDER.forEach((colorValue, displayIndex) => {
+    const color = PALETTE[colorValue - 1];
     const button = document.createElement("button");
     button.type = "button";
     button.className = "swatch";
     button.style.setProperty("--swatch", color.hex);
     button.setAttribute("aria-label", color.name);
-    button.setAttribute("aria-pressed", index === 0 ? "true" : "false");
+    button.setAttribute("aria-pressed", colorValue === selectedColor ? "true" : "false");
     button.addEventListener("click", async () => {
-      selectedColor = index + 1;
+      selectedColor = colorValue;
       dom.selectedColorName.textContent = color.name.toUpperCase();
       [...dom.palette.children].forEach((swatch, swatchIndex) => {
-        swatch.setAttribute("aria-pressed", swatchIndex === index ? "true" : "false");
+        swatch.setAttribute("aria-pressed", swatchIndex === displayIndex ? "true" : "false");
       });
       await audio.enable();
       audio.effect("paint", selectedColor);

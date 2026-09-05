@@ -81,7 +81,7 @@ The link targets the canonical existing Reddit post. A duplicate is based on exa
 - `rulesetVersion`: physics/scoring/power-up rules used by the post.
 - `columns`: always 18 for version 1.
 - `rows`: always 16 for version 1.
-- `cells`: row-major array of 288 values; `0` is empty and `1..12` are palette indices.
+- `cells`: row-major array of 288 values; `0` is empty and `1..14` are palette indices.
 - `boardHash`: SHA-256 of a canonical byte/string encoding containing the format version, dimensions, and cells.
 - Reddit record: post ID, author ID/name, creation timestamp, board hash, ruleset version, and optional derived statistics.
 
@@ -90,7 +90,7 @@ Validate on both client and server:
 - exactly 18 × 16 cells;
 - top two rows empty;
 - first and last columns empty;
-- palette values limited to `0..12`;
+- palette values limited to `0..14`;
 - at least one brick;
 - payload size and schema version accepted;
 - hash recomputed server-side rather than trusted from the client.
@@ -110,9 +110,13 @@ Use a fixed, high-contrast retro palette with stable numeric IDs. The prototype 
 7. blue
 8. violet
 9. magenta
-10. pink
+10. hot pink
 11. gray
 12. white
+13. pink
+14. brown
+
+Present the final five editor swatches in this order: hot pink, pink, brown, gray, white. This is a display order only; stable numeric color IDs must not change when the editor is rearranged.
 
 The exact hex values can be tuned before the schema is frozen, but IDs and values must never change for already-published boards. Empty cells use the dark playfield and are not a thirteenth color.
 
@@ -120,7 +124,7 @@ The exact hex values can be tuned before the schema is frozen, but IDs and value
 
 - The seed uses every drawable cell: columns 1–16 and rows 2–15.
 - Its art dimensions are 16 wide × 14 high inside the 18 × 16 board envelope.
-- Rows cycle through the twelve-color palette to form horizontal rainbow stripes.
+- Rows cycle through the fourteen-color palette to form horizontal rainbow stripes.
 - An idempotent `onAppInstall` routine creates it once per subreddit and stores the resulting post ID.
 - `onAppUpgrade` must not recreate it.
 
@@ -143,7 +147,7 @@ Cosmetic particles, pitch variation, and screen shake may use nondeterministic r
 - A power-up is bound to a cell index, so it drops whenever that brick is destroyed, independent of destruction order.
 - Use a seeded PRNG with a documented algorithm; changing it requires a new ruleset version.
 - Guarantee reasonable distribution for eligible boards rather than relying only on independent probability. Version 1 should target approximately one power-up per 24 bricks, guarantee at least one on sufficiently large boards, avoid stacking all placements in one region, and cap the total.
-- The initial two types are **Laser** (temporary paired shots) and **Safety Line** (one saved miss).
+- The initial two types are **Laser** (temporary paired shots) and **Safety Line** (one saved miss that remains available for 12 seconds after pickup, then disappears if unused). Additional Safety pickups extend the active duration by 12 seconds.
 - Power-ups should never be visible in the board preview.
 - Every player receives the same placements and types for the same post and ruleset.
 
@@ -194,8 +198,11 @@ Plan for option 2: upload brick-hit order, paddle contacts, power-up pickups, an
 ### Visual system
 
 - Dark charcoal background, off-white interface text, and saturated brick colors.
-- Pixel-aligned rectangles, one-pixel highlights/shadows, square or lightly clipped corners, and minimal borders.
-- Monospace/pixel display face with a system monospace fallback; keep body labels readable at mobile sizes.
+- Pixel-aligned rectangles, one-pixel highlights/shadows on game pieces, square corners, and minimal borders. Keep interface containers and controls flat, with no drop shadows.
+- Keep the playfield clean and solid: do not apply CRT scanlines over bricks, paddle, ball, or gameplay.
+- Use JetBrains Mono from Google Fonts as the locally embedded interface typeface, with system monospace fallbacks.
+- Use simple square CSS-outset controls with arcade-readable icons (a right-pointing triangle for Play and a small hammer symbol for Create). On press, reverse the light and dark edges so each control becomes inset like a classic web button; do not use gradients or ornamental bevels.
+- Frame post, HUD, editor, and dialog sections with solid chunky borders inspired by classic arcade cabinets.
 - Use CSS/Canvas effects rather than representational image assets for the playfield.
 - Keep controls visually quiet until needed so the artwork dominates.
 
@@ -205,7 +212,7 @@ Plan for option 2: upload brick-hit order, paddle contacts, power-up pickups, an
 - Combo milestones: progressively stronger color pulse, short label, and richer sound every 5 or 10 bricks.
 - Paddle hit: subtle squash/stretch and a brief contact spark.
 - Power-up reveal/pickup: recognizable fall animation, color trail, and labeled pickup toast.
-- Laser: muzzle flash and a short bright trail.
+- Laser: hot-pink shots with two hot-pink emitter lines embedded inside the paddle body at the shot positions, plus a short bright trail.
 - Safety Line: scan-in animation, low shimmer, and satisfying shatter on use.
 - Win: compact cascade across remaining effects followed by a score count-up.
 - Loss: brief desaturation/low shake, never a long blocking animation.
@@ -215,7 +222,7 @@ Plan for option 2: upload brick-hit order, paddle contacts, power-up pickups, an
 
 - Generate audio with Web Audio oscillators and noise so the style is cohesive and assets remain small.
 - Initialize/resume audio only after a user gesture.
-- Add distinct cues for launch, wall, paddle position, brick color/pitch, combo milestone, power-up drop, pickup, Laser, Safety Line, loss, clear, editor paint/erase, and successful post.
+- Add distinct cues for launch, wall, paddle position, brick height/pitch, combo milestone, power-up drop, pickup, Laser, Safety Line, loss, clear, editor paint/erase, and successful post. Brick-hit pitch rises as the hit position moves upward on the board and falls toward the bottom.
 - Use short gain envelopes to avoid clicks, cap simultaneous voices, and provide a persistent mute control.
 - Cosmetic pitch variation must not feed back into gameplay state.
 
