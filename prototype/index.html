@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171719">
+  <meta name="description" content="A local interaction prototype for Art Breaker, a community-made brick breaker game.">
+  <title>Art Breaker — Prototype</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header" aria-label="Prototype header">
+      <a class="brand" href="#post" aria-label="Art Breaker home">
+        <span class="brand-mark" aria-hidden="true">AB</span>
+        <span>ART BREAKER</span>
+      </a>
+      <button class="icon-button" id="soundToggle" type="button" aria-pressed="false" aria-label="Mute sound">
+        <span aria-hidden="true" id="soundIcon">♪</span>
+      </button>
+    </header>
+
+    <main>
+      <section class="view post-view" id="postView" data-view="post" aria-labelledby="postTitle">
+        <div class="post-context">
+          <div>
+            <p class="eyebrow">COMMUNITY LEVEL · PROTOTYPE</p>
+            <h1 id="postTitle">Rainbow No. 1</h1>
+          </div>
+          <span class="post-badge">18 × 16</span>
+        </div>
+
+        <article class="post-card">
+          <div class="art-frame">
+            <canvas id="postPreview" width="400" height="360" role="img" aria-label="Preview of the current Art Breaker board"></canvas>
+            <div class="preview-sheen" aria-hidden="true"></div>
+          </div>
+          <div class="post-copy">
+            <div>
+              <p class="level-name" id="postLevelName">Rainbow No. 1</p>
+              <p class="byline" id="postByline">Seeded by Art Breaker</p>
+            </div>
+            <div class="mini-stat">
+              <span>BEST</span>
+              <strong id="postBest">—</strong>
+            </div>
+          </div>
+          <div class="post-actions">
+            <button class="arcade-button primary" id="openPlay" type="button">
+              <span aria-hidden="true">▶</span> PLAY
+            </button>
+            <button class="arcade-button secondary" id="openCreate" type="button">
+              <span aria-hidden="true">✦</span> CREATE
+            </button>
+          </div>
+        </article>
+
+        <p class="prototype-note">A local sizing and interaction study for Reddit expanded view.</p>
+      </section>
+
+      <section class="view expanded-view" id="playView" data-view="play" aria-labelledby="playTitle" hidden>
+        <div class="screen play-screen">
+          <div class="screen-header">
+            <button class="back-button" type="button" data-back aria-label="Back to post">←</button>
+            <div class="screen-heading">
+              <p class="eyebrow">PLAYING</p>
+              <h1 id="playTitle">Rainbow No. 1</h1>
+            </div>
+            <div class="remaining" aria-label="Bricks remaining">
+              <span id="remainingCount">224</span>
+              <small>LEFT</small>
+            </div>
+          </div>
+
+          <div class="score-strip" aria-live="polite">
+            <div>
+              <span>SCORE</span>
+              <strong id="scoreValue">0</strong>
+            </div>
+            <div class="combo-stat">
+              <span>COMBO</span>
+              <strong id="comboValue">×0</strong>
+            </div>
+            <div>
+              <span>BEST</span>
+              <strong id="bestValue">0</strong>
+            </div>
+          </div>
+
+          <div class="game-stage" id="gameStage">
+            <canvas id="gameCanvas" width="400" height="700" aria-label="Art Breaker playfield"></canvas>
+            <button class="game-overlay" id="gameOverlay" type="button">
+              <span class="overlay-kicker" id="overlayKicker">READY?</span>
+              <strong id="overlayTitle">CLICK TO PLAY</strong>
+              <span id="overlayHint">Move with your pointer or arrow keys</span>
+            </button>
+          </div>
+
+          <div class="play-footer">
+            <span><kbd>←</kbd><kbd>→</kbd> MOVE</span>
+            <button class="text-button" id="restartGame" type="button">RESTART</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="view expanded-view" id="createView" data-view="create" aria-labelledby="createTitle" hidden>
+        <div class="screen creator-screen">
+          <div class="screen-header creator-header">
+            <button class="back-button" type="button" data-back aria-label="Back to post">←</button>
+            <div class="screen-heading">
+              <p class="eyebrow">CREATE A LEVEL</p>
+              <h1 id="createTitle">Paint your board</h1>
+            </div>
+            <div class="brick-count" aria-live="polite">
+              <span id="brickCount">0</span>
+              <small>BRICKS</small>
+            </div>
+          </div>
+
+          <p class="creator-help">Pick a color, then tap or drag. Tap the same color again to erase.</p>
+
+          <div class="editor-frame">
+            <div class="editor-grid" id="editorGrid" role="grid" aria-label="18 by 16 Art Breaker board editor"></div>
+          </div>
+
+          <div class="palette-panel">
+            <div class="panel-label">
+              <span>COLOR</span>
+              <strong id="selectedColorName">RED</strong>
+            </div>
+            <div class="palette" id="palette" aria-label="Brick colors"></div>
+          </div>
+
+          <div class="editor-tools" aria-label="Editor tools">
+            <button class="tool-button" id="undoButton" type="button" disabled>↶ <span>UNDO</span></button>
+            <button class="tool-button" id="redoButton" type="button" disabled>↷ <span>REDO</span></button>
+            <button class="tool-button danger" id="clearButton" type="button" disabled>× <span>CLEAR</span></button>
+          </div>
+
+          <div class="publish-actions">
+            <button class="arcade-button secondary" id="previewButton" type="button" disabled>PREVIEW</button>
+            <button class="arcade-button primary" id="publishButton" type="button" disabled>POST BOARD</button>
+          </div>
+
+          <div class="editor-message" id="editorMessage" role="status" aria-live="polite" hidden></div>
+          <p class="local-only">Prototype only — posting stores this board on your device.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="preview-dialog" id="previewDialog">
+    <div class="dialog-header">
+      <div>
+        <p class="eyebrow">BOARD PREVIEW</p>
+        <h2>Your art as a level</h2>
+      </div>
+      <button class="back-button" id="closePreview" type="button" aria-label="Close preview">×</button>
+    </div>
+    <canvas id="creatorPreview" width="400" height="360" role="img" aria-label="Preview of the board being created"></canvas>
+    <button class="arcade-button primary" id="playDraft" type="button">PLAY THIS DRAFT</button>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
