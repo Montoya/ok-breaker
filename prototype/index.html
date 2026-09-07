@@ -6,14 +6,16 @@
   <meta name="theme-color" content="#171719">
   <meta name="description" content="A local interaction prototype for Art Breaker, a community-made brick breaker game.">
   <title>Art Breaker — Prototype</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=21">
 </head>
 <body>
   <div class="page-shell">
     <header class="site-header" aria-label="Prototype header">
       <a class="brand" href="#post" aria-label="Art Breaker home">
-        <span class="brand-mark" aria-hidden="true">AB</span>
-        <span>ART BREAKER</span>
+        <span class="brand-bricks" aria-hidden="true">
+          <span>A</span><span>R</span><span>T</span>
+          <span class="word-start">B</span><span>R</span><span>E</span><span>A</span><span>K</span><span>E</span><span>R</span>
+        </span>
       </a>
       <button class="icon-button" id="soundToggle" type="button" aria-pressed="false" aria-label="Mute sound">
         <span aria-hidden="true" id="soundIcon">♪</span>
@@ -27,7 +29,6 @@
             <p class="eyebrow">COMMUNITY LEVEL · PROTOTYPE</p>
             <h1 id="postTitle">Rainbow No. 1</h1>
           </div>
-          <span class="post-badge">18 × 16</span>
         </div>
 
         <article class="post-card">
@@ -38,7 +39,7 @@
           <div class="post-copy">
             <div>
               <p class="level-name" id="postLevelName">Rainbow No. 1</p>
-              <p class="byline" id="postByline">Seeded by Art Breaker</p>
+              <p class="byline" id="postByline">Created by u/art_breaker</p>
             </div>
             <div class="mini-stat">
               <span>BEST</span>
@@ -46,12 +47,8 @@
             </div>
           </div>
           <div class="post-actions">
-            <button class="arcade-button primary" id="openPlay" type="button">
-              <span class="button-icon play-icon" aria-hidden="true">▶</span> PLAY
-            </button>
-            <button class="arcade-button secondary" id="openCreate" type="button">
-              <span class="button-icon hammer-icon" aria-hidden="true">⚒︎</span> CREATE
-            </button>
+            <button class="arcade-button primary" id="openPlay" type="button">PLAY</button>
+            <button class="arcade-button secondary" id="openCreate" type="button">CREATE</button>
           </div>
         </article>
 
@@ -117,10 +114,10 @@
             </div>
           </div>
 
-          <p class="creator-help">Pick a color, then tap or drag. Tap the same color again to erase.</p>
+          <p class="creator-help">Pick a color, then tap or drag. Tap the same color again to erase. Long press to fill.</p>
 
           <div class="editor-frame">
-            <div class="editor-grid" id="editorGrid" role="grid" aria-label="18 by 16 Art Breaker board editor"></div>
+            <div class="editor-grid" id="editorGrid" role="grid" aria-label="20 by 18 Art Breaker board editor"></div>
           </div>
 
           <div class="palette-panel">
@@ -132,14 +129,14 @@
           </div>
 
           <div class="editor-tools" aria-label="Editor tools">
-            <button class="tool-button" id="undoButton" type="button" disabled>↶ <span>UNDO</span></button>
-            <button class="tool-button" id="redoButton" type="button" disabled>↷ <span>REDO</span></button>
-            <button class="tool-button danger" id="clearButton" type="button" disabled>× <span>CLEAR</span></button>
+            <button class="tool-button" id="undoButton" type="button" disabled>UNDO</button>
+            <button class="tool-button" id="redoButton" type="button" disabled>REDO</button>
+            <button class="tool-button danger" id="clearButton" type="button" disabled>CLEAR</button>
           </div>
 
           <div class="publish-actions">
             <button class="arcade-button secondary" id="previewButton" type="button" disabled>PREVIEW</button>
-            <button class="arcade-button primary" id="publishButton" type="button" disabled>POST BOARD</button>
+            <button class="arcade-button primary" id="publishButton" type="button" disabled>PUBLISH</button>
           </div>
 
           <div class="editor-message" id="editorMessage" role="status" aria-live="polite" hidden></div>
@@ -163,6 +160,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

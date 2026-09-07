@@ -16,7 +16,7 @@ Routes are represented by URL fragments:
 
 - `#post` — seeded/community post preview
 - `#play` — fixed-step Canvas game
-- `#create` — 18 × 16 board editor with a 16 × 14 drawable area
+- `#create` — fully drawable 20 × 18 board editor
 
 Boards and per-board best scores are stored in browser local storage. **Post board** is a local simulation and makes no Reddit or network request.
 

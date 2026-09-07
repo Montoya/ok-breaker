@@ -1,10 +1,11 @@
 const WIDTH = 400;
 const HEIGHT = 700;
-const COLUMNS = 18;
-const ROWS = 16;
+const DEFAULT_COLUMNS = 18;
+const DEFAULT_ROWS = 16;
+const EDITOR_COLUMNS = 20;
+const EDITOR_ROWS = 18;
 const CELL = 20;
-const BOARD_X = 20;
-const BOARD_Y = 28;
+const DEFAULT_BOARD_Y = 28;
 const FIXED_STEP = 1 / 120;
 const MAX_FRAME_TIME = 0.08;
 const BASE_SPEED = 240;
@@ -12,17 +13,19 @@ const BASE_PADDLE_WIDTH = 82;
 const COMBO_GROWTH = 1.15;
 const STORAGE_PREFIX = "art-breaker-prototype";
 const LASER_COLOR = "#ff3da5";
+const PROTOTYPE_APP_USERNAME = "art_breaker";
+const PROTOTYPE_USER_USERNAME = "prototype_user";
 
 const POWER_UPS = {
   wide: { label: "W", color: "#b6ff3b", name: "WIDE", weight: 15 },
-  narrow: { label: "N", color: "#ff8a32", name: "NARROW", weight: 15 },
-  slow: { label: "S", color: "#35d9ff", name: "SLOW", weight: 11.25 },
-  shield: { label: "B", color: "#4387ff", name: "SAFETY BAR", weight: 15 },
-  laser: { label: "L", color: LASER_COLOR, name: "LASER", weight: 11.25 },
-  fast: { label: "F", color: "#ffe14a", name: "FAST", weight: 11.25 },
-  multi: { label: "M", color: "#df4dff", name: "MULTI-BALL", weight: 11.25 },
-  fire: { icon: "fire", color: "#ff4554", name: "FIREBALL", weight: 5 },
-  chain: { icon: "bolt", color: "#f6f4eb", name: "CHAIN LIGHTNING", weight: 5 },
+  narrow: { label: "N", color: "#b6ff3b", name: "NARROW", weight: 15 },
+  slow: { label: "S", color: "#ff4554", name: "SLOW", weight: 10 },
+  shield: { label: "B", color: "#35d9ff", name: "SAFETY BAR", weight: 15 },
+  laser: { label: "L", color: LASER_COLOR, name: "LASER", weight: 10 },
+  fast: { label: "F", color: "#ffe14a", name: "FAST", weight: 10 },
+  multi: { label: "M", color: "#f6f4eb", name: "MULTI-BALL", weight: 10 },
+  fire: { icon: "fire", color: "#ff8a32", name: "FIREBALL", weight: 10 },
+  chain: { icon: "bolt", color: "#92939c", name: "CHAIN LIGHTNING", weight: 5 },
 };
 
 function choosePowerType(random) {
@@ -56,7 +59,6 @@ const EDITOR_PALETTE_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 11, 12];
 const dom = {
   views: [...document.querySelectorAll("[data-view]")],
   soundToggle: document.querySelector("#soundToggle"),
-  soundIcon: document.querySelector("#soundIcon"),
   postPreview: document.querySelector("#postPreview"),
   postTitle: document.querySelector("#postTitle"),
   postLevelName: document.querySelector("#postLevelName"),
@@ -94,21 +96,29 @@ const dom = {
 };
 
 function makeSeedBoard() {
-  const board = new Array(COLUMNS * ROWS).fill(0);
-  for (let row = 2; row < ROWS; row += 1) {
-    for (let column = 1; column < COLUMNS - 1; column += 1) {
-      board[row * COLUMNS + column] = ((row - 2) % PALETTE.length) + 1;
+  const rainbow = [1, 2, 3, 5, 6, 7, 8];
+  const board = new Array(DEFAULT_COLUMNS * DEFAULT_ROWS).fill(0);
+  for (let row = 2; row < DEFAULT_ROWS; row += 1) {
+    for (let column = 1; column < DEFAULT_COLUMNS - 1; column += 1) {
+      board[row * DEFAULT_COLUMNS + column] = rainbow[(row - 2) % rainbow.length];
     }
   }
   return board;
 }
 
-function canonicalBoard(board) {
-  return `v2:${COLUMNS}x${ROWS}:${board.map((value) => value.toString(16)).join("")}`;
+function dimensionsForBoard(board, columns, rows) {
+  if (columns && rows && columns * rows === board.length) return { columns, rows };
+  if (board.length === EDITOR_COLUMNS * EDITOR_ROWS) return { columns: EDITOR_COLUMNS, rows: EDITOR_ROWS };
+  return { columns: DEFAULT_COLUMNS, rows: DEFAULT_ROWS };
 }
 
-function hashBoard(board) {
-  const input = canonicalBoard(board);
+function canonicalBoard(board, columns, rows) {
+  const dimensions = dimensionsForBoard(board, columns, rows);
+  return `v2:${dimensions.columns}x${dimensions.rows}:${board.map((value) => value.toString(16)).join("")}`;
+}
+
+function hashBoard(board, columns, rows) {
+  const input = canonicalBoard(board, columns, rows);
   let hash = 0x811c9dc5;
   for (let index = 0; index < input.length; index += 1) {
     hash ^= input.charCodeAt(index);
@@ -141,7 +151,10 @@ function loadPublishedBoards() {
   try {
     const parsed = JSON.parse(localStorage.getItem(`${STORAGE_PREFIX}:boards`) || "[]");
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((record) => Array.isArray(record.board) && record.board.length === COLUMNS * ROWS);
+    return parsed
+      .filter((record) => Array.isArray(record.board)
+        && [DEFAULT_COLUMNS * DEFAULT_ROWS, EDITOR_COLUMNS * EDITOR_ROWS].includes(record.board.length))
+      .map((record) => ({ ...record, ...dimensionsForBoard(record.board, record.columns, record.rows) }));
   } catch {
     return [];
   }
@@ -155,17 +168,28 @@ function savePublishedBoards(records) {
   }
 }
 
-function drawBoardPreview(canvas, board, showGrid = false) {
+function drawBoardPreview(canvas, board, showGrid = false, columns, rows) {
   const context = canvas.getContext("2d");
+  const dimensions = dimensionsForBoard(board, columns, rows);
+  const boardX = (canvas.width - dimensions.columns * CELL) / 2;
+  const occupiedRows = board
+    .map((value, index) => value > 0 ? Math.floor(index / dimensions.columns) : -1)
+    .filter((row) => row >= 0);
+  const minOccupiedRow = occupiedRows.length ? Math.min(...occupiedRows) : 0;
+  const maxOccupiedRow = occupiedRows.length ? Math.max(...occupiedRows) : dimensions.rows - 1;
+  const artworkHeight = (maxOccupiedRow - minOccupiedRow + 1) * CELL;
+  const boardY = showGrid
+    ? (canvas.height - dimensions.rows * CELL) / 2
+    : (canvas.height - artworkHeight) / 2 - minOccupiedRow * CELL;
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = "#111113";
   context.fillRect(0, 0, canvas.width, canvas.height);
 
-  for (let row = 0; row < ROWS; row += 1) {
-    for (let column = 0; column < COLUMNS; column += 1) {
-      const value = board[row * COLUMNS + column];
-      const x = BOARD_X + column * CELL;
-      const y = BOARD_Y + row * CELL;
+  for (let row = 0; row < dimensions.rows; row += 1) {
+    for (let column = 0; column < dimensions.columns; column += 1) {
+      const value = board[row * dimensions.columns + column];
+      const x = boardX + column * CELL;
+      const y = boardY + row * CELL;
       if (value > 0) {
         context.fillStyle = PALETTE[value - 1].hex;
         context.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
@@ -185,6 +209,8 @@ function drawBoardPreview(canvas, board, showGrid = false) {
 class ChipAudio {
   constructor() {
     this.context = null;
+    this.master = null;
+    this.compressor = null;
     this.muted = false;
     this.voices = 0;
   }
@@ -196,6 +222,15 @@ class ChipAudio {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) return false;
         this.context = new AudioContextClass();
+        this.master = this.context.createGain();
+        this.compressor = this.context.createDynamicsCompressor();
+        this.master.gain.value = 3;
+        this.compressor.threshold.value = -14;
+        this.compressor.knee.value = 10;
+        this.compressor.ratio.value = 8;
+        this.compressor.attack.value = 0.003;
+        this.compressor.release.value = 0.12;
+        this.master.connect(this.compressor).connect(this.context.destination);
       }
       if (this.context.state === "suspended") await this.context.resume();
       return true;
@@ -215,7 +250,7 @@ class ChipAudio {
     gain.gain.exponentialRampToValueAtTime(volume, now + 0.005);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     oscillator.connect(gain);
-    gain.connect(this.context.destination);
+    gain.connect(this.master || this.context.destination);
     oscillator.start(now);
     oscillator.stop(now + duration + 0.01);
     this.voices += 1;
@@ -262,12 +297,12 @@ function seededRandom(seedText) {
   };
 }
 
-function makePowerPlan(board, hash) {
+function makePowerPlan(board, hash, columns) {
   const occupied = board
     .map((value, index) => ({ value, index }))
     .filter((cell) => cell.value > 0);
   const target = occupied.length >= 12
-    ? Math.min(8, Math.max(1, Math.round(occupied.length / 24)))
+    ? Math.min(11, Math.max(1, Math.round(occupied.length / 18)))
     : 0;
   const random = seededRandom(hash);
   const shuffled = [...occupied];
@@ -278,8 +313,8 @@ function makePowerPlan(board, hash) {
 
   const chosen = [];
   for (const candidate of shuffled) {
-    const row = Math.floor(candidate.index / COLUMNS);
-    const isSpaced = chosen.every((cell) => Math.abs(Math.floor(cell.index / COLUMNS) - row) >= 2);
+    const row = Math.floor(candidate.index / columns);
+    const isSpaced = chosen.every((cell) => Math.abs(Math.floor(cell.index / columns) - row) >= 2);
     if (isSpaced || shuffled.length - chosen.length <= target) chosen.push(candidate);
     if (chosen.length === target) break;
   }
@@ -314,7 +349,7 @@ class ArtBreakerGame {
   }
 
   bindInput() {
-    dom.gameStage.addEventListener("pointermove", (event) => {
+    const updatePointerPosition = (event) => {
       const rect = this.canvas.getBoundingClientRect();
       this.pointerX = Math.max(0, Math.min(WIDTH, (event.clientX - rect.left) * WIDTH / rect.width));
       this.pointerActive = true;
@@ -322,11 +357,17 @@ class ArtBreakerGame {
         this.paddle.x = Math.max(0, Math.min(WIDTH - this.paddle.width, this.pointerX - this.paddle.width / 2));
         this.ball.x = this.paddle.x + this.paddle.width / 2;
       }
-    });
+    };
+    dom.gameStage.addEventListener("pointerdown", updatePointerPosition);
+    dom.gameStage.addEventListener("pointermove", updatePointerPosition);
 
     window.addEventListener("keydown", (event) => {
       if (location.hash !== "#play") return;
       if (["ArrowLeft", "ArrowRight", " "].includes(event.key)) event.preventDefault();
+      if (event.key.toLowerCase() === "s" && this.state === "running" && !event.repeat) {
+        event.preventDefault();
+        this.breakRandomBrick();
+      }
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
         this.pointerActive = false;
         this.keys.add(event.key);
@@ -345,9 +386,44 @@ class ArtBreakerGame {
     });
   }
 
+  breakRandomBrick() {
+    const activeBricks = this.bricks.filter((brick) => brick.active);
+    if (!activeBricks.length) return;
+    const brick = activeBricks[Math.floor(Math.random() * activeBricks.length)];
+    this.destroyBrick(brick, "shortcut");
+    if (this.state === "running") {
+      this.addFloater(brick.x + brick.width / 2, brick.y, "S BREAK!", "#f6f4eb");
+    }
+  }
+
   setBoard(record) {
-    this.record = record;
+    this.record = { ...record, ...dimensionsForBoard(record.board, record.columns, record.rows) };
     this.reset();
+  }
+
+  clearSession() {
+    this.state = "idle";
+    this.record = null;
+    this.score = 0;
+    this.combo = 0;
+    this.remaining = 0;
+    this.simulationTime = 0;
+    this.speedTier = 0;
+    this.ball = null;
+    this.balls = [];
+    this.bricks = [];
+    this.powerUps = [];
+    this.bullets = [];
+    this.particles = [];
+    this.floaters = [];
+    this.lightningArcs = [];
+    this.accumulator = 0;
+    this.laserUntil = 0;
+    this.shieldUntil = 0;
+    this.slowUntil = 0;
+    this.fastUntil = 0;
+    this.chainUntil = 0;
+    this.fireHitsRemaining = 0;
   }
 
   reset() {
@@ -374,19 +450,27 @@ class ArtBreakerGame {
     this.fireHitsRemaining = 0;
     this.lastSpeedMultiplier = 1;
     this.lastWallSound = -1;
+    this.columns = this.record.columns;
+    this.rows = this.record.rows;
+    this.boardX = (WIDTH - this.columns * CELL) / 2;
+    this.boardY = this.rows === DEFAULT_ROWS ? DEFAULT_BOARD_Y : 0;
     this.best = getBest(this.record.hash);
     this.bricks = this.record.board.map((value, index) => ({
       index,
       value,
       active: value > 0,
-      x: BOARD_X + (index % COLUMNS) * CELL,
-      y: BOARD_Y + Math.floor(index / COLUMNS) * CELL,
+      x: this.boardX + (index % this.columns) * CELL,
+      y: this.boardY + Math.floor(index / this.columns) * CELL,
       width: CELL - 2,
       height: CELL - 2,
     }));
     this.initialBrickCount = this.bricks.filter((brick) => brick.active).length;
     this.remaining = this.initialBrickCount;
-    this.powerPlan = makePowerPlan(this.record.board, this.record.hash);
+    this.powerPlan = makePowerPlan(
+      this.record.board,
+      this.record.gameplaySeed || this.record.hash,
+      this.columns,
+    );
     this.paddle = { x: 159, y: 650, width: BASE_PADDLE_WIDTH, height: 10 };
     this.ball = { x: 200, y: 642, radius: 6, vx: 0, vy: 0, speed: BASE_SPEED };
     this.balls = [this.ball];
@@ -410,7 +494,8 @@ class ArtBreakerGame {
   }
 
   start() {
-    const direction = Number.parseInt(this.record.hash.slice(-1), 16) % 2 === 0 ? -1 : 1;
+    const gameplaySeed = this.record.gameplaySeed || this.record.hash;
+    const direction = Number.parseInt(gameplaySeed.slice(-1), 16) % 2 === 0 ? -1 : 1;
     const horizontal = 145 * direction;
     this.ball.vx = horizontal;
     this.ball.vy = -Math.sqrt(this.ball.speed ** 2 - horizontal ** 2);
@@ -457,7 +542,7 @@ class ArtBreakerGame {
       this.setPaddleWidth(BASE_PADDLE_WIDTH);
       this.paddleSizeType = null;
     }
-    const multiplier = (this.simulationTime < this.slowUntil ? 0.7 : 1)
+    const multiplier = (this.simulationTime < this.slowUntil ? 0.6 : 1)
       * (this.simulationTime < this.fastUntil ? 1.35 : 1);
     if (multiplier !== this.lastSpeedMultiplier) {
       for (const ball of this.balls) {
@@ -621,8 +706,8 @@ class ArtBreakerGame {
     this.burst(brick.x + brick.width / 2, brick.y + brick.height / 2, color, source === "laser" ? 5 : 9, 115);
     if (points >= 300 || this.combo % 5 === 0) this.addFloater(brick.x + 9, brick.y, `+${formatScore(points)}`, color);
     this.shake = Math.max(this.shake, Math.min(3.5, 0.8 + this.combo * 0.04));
-    const row = Math.floor(brick.index / COLUMNS);
-    const pitchStep = ROWS - 1 - row;
+    const row = Math.floor(brick.index / this.columns);
+    const pitchStep = this.rows - 1 - row;
     audio.effect(this.combo % 10 === 0 ? "combo" : "brick", pitchStep);
     this.applySpeedTier();
     this.updateHud();
@@ -709,22 +794,21 @@ class ArtBreakerGame {
   }
 
   activatePowerUp(type) {
-    const extend = (current, duration) => Math.max(current, this.simulationTime) + duration;
     if (type === "laser") {
-      this.laserUntil = extend(this.laserUntil, 7);
+      this.laserUntil = this.simulationTime + 8;
       this.shotTimer = 0;
     } else if (type === "shield") {
-      this.shieldUntil = extend(this.shieldUntil, 12);
+      this.shieldUntil = this.simulationTime + 15;
     } else if (type === "wide" || type === "narrow") {
       this.paddleSizeType = type;
       this.paddleSizeUntil = this.simulationTime + (type === "wide" ? 15 : 10);
       this.setPaddleWidth(BASE_PADDLE_WIDTH * (type === "wide" ? 1.5 : 0.5));
     } else if (type === "slow") {
-      this.slowUntil = extend(this.slowUntil, 15);
+      this.slowUntil = this.simulationTime + 15;
     } else if (type === "fast") {
-      this.fastUntil = extend(this.fastUntil, 10);
+      this.fastUntil = this.simulationTime + 10;
     } else if (type === "chain") {
-      this.chainUntil = extend(this.chainUntil, 10);
+      this.chainUntil = this.simulationTime + 10;
     } else if (type === "fire") {
       this.fireHitsRemaining = 10;
     } else if (type === "multi") {
@@ -975,9 +1059,6 @@ class ArtBreakerGame {
     context.arc(power.x, power.y, power.radius, 0, Math.PI * 2);
     context.fill();
     context.shadowBlur = 0;
-    context.strokeStyle = "rgba(255,255,255,.72)";
-    context.lineWidth = 1.5;
-    context.stroke();
     context.fillStyle = "#111113";
     if (definition.icon === "fire") {
       context.beginPath();
@@ -1003,8 +1084,11 @@ class ArtBreakerGame {
     } else {
       context.font = '800 10px "JetBrains Mono", monospace';
       context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(definition.label, power.x, power.y + 0.5);
+      context.textBaseline = "alphabetic";
+      const metrics = context.measureText(definition.label);
+      const centeredBaseline = power.y
+        + (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
+      context.fillText(definition.label, power.x, centeredBaseline);
     }
     context.restore();
   }
@@ -1065,9 +1149,11 @@ const seedBoard = makeSeedBoard();
 const seedRecord = {
   id: "seed",
   title: "Rainbow No. 1",
-  creator: "Seeded by Art Breaker",
+  creator: `Created by u/${PROTOTYPE_APP_USERNAME}`,
+  columns: DEFAULT_COLUMNS,
+  rows: DEFAULT_ROWS,
   board: seedBoard,
-  hash: hashBoard(seedBoard),
+  hash: hashBoard(seedBoard, DEFAULT_COLUMNS, DEFAULT_ROWS),
 };
 let publishedBoards = loadPublishedBoards();
 let currentRecord = seedRecord;
@@ -1079,12 +1165,14 @@ function updatePost(record = currentRecord) {
   dom.postTitle.textContent = record.title;
   dom.postLevelName.textContent = record.title;
   dom.postByline.textContent = record.creator;
+  const dimensions = dimensionsForBoard(record.board, record.columns, record.rows);
   const best = getBest(record.hash);
   dom.postBest.textContent = best ? formatScore(best) : "—";
-  drawBoardPreview(dom.postPreview, record.board);
+  drawBoardPreview(dom.postPreview, record.board, false, dimensions.columns, dimensions.rows);
 }
 
 function showView(name) {
+  if (name !== "play") game.clearSession();
   for (const view of dom.views) view.hidden = view.dataset.view !== name;
   if (name === "post") updatePost();
   if (name === "play") {
@@ -1111,35 +1199,32 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => { dom.toast.hidden = true; }, 2600);
 }
 
-let editorBoard = new Array(COLUMNS * ROWS).fill(0);
+let editorBoard = new Array(EDITOR_COLUMNS * EDITOR_ROWS).fill(0);
 let selectedColor = 1;
 let undoStack = [];
 let redoStack = [];
 let editorDragging = false;
 let strokeValue = 0;
+let longPressTimer = 0;
+let longPressIndex = -1;
 const editorCells = [];
 
-function isLockedCell(index) {
-  const row = Math.floor(index / COLUMNS);
-  const column = index % COLUMNS;
-  return row < 2 || column === 0 || column === COLUMNS - 1;
+function cancelEditorLongPress() {
+  window.clearTimeout(longPressTimer);
+  longPressTimer = 0;
+  longPressIndex = -1;
 }
 
 function buildEditor() {
-  for (let index = 0; index < COLUMNS * ROWS; index += 1) {
-    const row = Math.floor(index / COLUMNS);
-    const column = index % COLUMNS;
+  for (let index = 0; index < EDITOR_COLUMNS * EDITOR_ROWS; index += 1) {
+    const row = Math.floor(index / EDITOR_COLUMNS);
+    const column = index % EDITOR_COLUMNS;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "editor-cell";
     button.dataset.index = String(index);
     button.setAttribute("role", "gridcell");
     button.setAttribute("aria-label", `Row ${row + 1}, column ${column + 1}, empty`);
-    if (isLockedCell(index)) {
-      button.classList.add("locked");
-      button.disabled = true;
-      button.setAttribute("aria-label", `Row ${row + 1}, column ${column + 1}, protected margin`);
-    }
     dom.editorGrid.appendChild(button);
     editorCells.push(button);
   }
@@ -1164,32 +1249,54 @@ function buildEditor() {
     dom.palette.appendChild(button);
   });
 
-  dom.editorGrid.addEventListener("pointerdown", async (event) => {
-    const cell = event.target.closest(".editor-cell:not(.locked)");
+  dom.editorGrid.addEventListener("pointerdown", (event) => {
+    const cell = event.target.closest(".editor-cell");
     if (!cell) return;
     event.preventDefault();
+    cancelEditorLongPress();
     const index = Number(cell.dataset.index);
-    undoStack.push([...editorBoard]);
+    const sourceBoard = [...editorBoard];
+    undoStack.push(sourceBoard);
     if (undoStack.length > 100) undoStack.shift();
     redoStack = [];
-    strokeValue = editorBoard[index] === selectedColor ? 0 : selectedColor;
+    strokeValue = sourceBoard[index] === selectedColor ? 0 : selectedColor;
     editorDragging = true;
-    await audio.enable();
+    longPressIndex = index;
+    void audio.enable();
     applyEditorCell(index, strokeValue);
+    longPressTimer = window.setTimeout(() => {
+      if (!editorDragging || longPressIndex !== index) return;
+      fillEditorRegion(index, sourceBoard, strokeValue);
+      editorDragging = false;
+      cancelEditorLongPress();
+    }, 550);
   });
 
   document.addEventListener("pointermove", (event) => {
     if (!editorDragging) return;
     const target = document.elementFromPoint(event.clientX, event.clientY);
-    const cell = target?.closest?.(".editor-cell:not(.locked)");
-    if (cell) applyEditorCell(Number(cell.dataset.index), strokeValue, false);
+    const cell = target?.closest?.(".editor-cell");
+    if (!cell) {
+      cancelEditorLongPress();
+      return;
+    }
+    const index = Number(cell.dataset.index);
+    if (index !== longPressIndex) cancelEditorLongPress();
+    applyEditorCell(index, strokeValue, false);
   });
-  document.addEventListener("pointerup", () => { editorDragging = false; });
-  document.addEventListener("pointercancel", () => { editorDragging = false; });
+  document.addEventListener("pointerup", () => {
+    editorDragging = false;
+    cancelEditorLongPress();
+  });
+  document.addEventListener("pointercancel", () => {
+    editorDragging = false;
+    cancelEditorLongPress();
+  });
+  dom.editorGrid.addEventListener("contextmenu", (event) => event.preventDefault());
 
   dom.editorGrid.addEventListener("click", (event) => {
     if (event.detail !== 0) return;
-    const cell = event.target.closest(".editor-cell:not(.locked)");
+    const cell = event.target.closest(".editor-cell");
     if (!cell) return;
     const index = Number(cell.dataset.index);
     undoStack.push([...editorBoard]);
@@ -1198,8 +1305,36 @@ function buildEditor() {
   });
 }
 
+function fillEditorRegion(startIndex, sourceBoard, value) {
+  const sourceValue = sourceBoard[startIndex];
+  const pending = [startIndex];
+  const visited = new Uint8Array(sourceBoard.length);
+  let changed = false;
+
+  while (pending.length) {
+    const index = pending.pop();
+    if (visited[index] || sourceBoard[index] !== sourceValue) continue;
+    visited[index] = 1;
+    if (editorBoard[index] !== value) {
+      editorBoard[index] = value;
+      renderEditorCell(index);
+      changed = true;
+    }
+
+    const row = Math.floor(index / EDITOR_COLUMNS);
+    const column = index % EDITOR_COLUMNS;
+    if (row > 0) pending.push(index - EDITOR_COLUMNS);
+    if (row < EDITOR_ROWS - 1) pending.push(index + EDITOR_COLUMNS);
+    if (column > 0) pending.push(index - 1);
+    if (column < EDITOR_COLUMNS - 1) pending.push(index + 1);
+  }
+
+  if (changed) audio.effect(value === 0 ? "erase" : "paint", value);
+  updateEditorControls();
+}
+
 function applyEditorCell(index, value, withSound = true) {
-  if (isLockedCell(index) || editorBoard[index] === value) return;
+  if (editorBoard[index] === value) return;
   editorBoard[index] = value;
   if (withSound) audio.effect(value === 0 ? "erase" : "paint", value);
   renderEditorCell(index);
@@ -1209,10 +1344,10 @@ function applyEditorCell(index, value, withSound = true) {
 function renderEditorCell(index) {
   const value = editorBoard[index];
   const cell = editorCells[index];
-  if (!cell || isLockedCell(index)) return;
+  if (!cell) return;
   cell.style.background = value ? PALETTE[value - 1].hex : "#1b1b1e";
-  const row = Math.floor(index / COLUMNS);
-  const column = index % COLUMNS;
+  const row = Math.floor(index / EDITOR_COLUMNS);
+  const column = index % EDITOR_COLUMNS;
   cell.setAttribute("aria-label", `Row ${row + 1}, column ${column + 1}, ${value ? PALETTE[value - 1].name : "empty"}`);
 }
 
@@ -1232,7 +1367,7 @@ function updateEditorControls() {
 }
 
 function resetEditor() {
-  editorBoard = new Array(COLUMNS * ROWS).fill(0);
+  editorBoard = new Array(EDITOR_COLUMNS * EDITOR_ROWS).fill(0);
   undoStack = [];
   redoStack = [];
   dom.editorMessage.hidden = true;
@@ -1258,7 +1393,7 @@ function clearEditor() {
   if (!editorBoard.some(Boolean)) return;
   undoStack.push([...editorBoard]);
   redoStack = [];
-  editorBoard = new Array(COLUMNS * ROWS).fill(0);
+  editorBoard = new Array(EDITOR_COLUMNS * EDITOR_ROWS).fill(0);
   audio.effect("erase");
   renderEditor();
 }
@@ -1269,7 +1404,8 @@ function allKnownBoards() {
 
 function findDuplicate(board) {
   const canonical = canonicalBoard(board);
-  return allKnownBoards().find((record) => record.hash === hashBoard(board) && canonicalBoard(record.board) === canonical);
+  return allKnownBoards().find((record) => record.hash === hashBoard(board)
+    && canonicalBoard(record.board, record.columns, record.rows) === canonical);
 }
 
 function showDuplicate(record) {
@@ -1295,7 +1431,9 @@ function publishBoard() {
   const record = {
     id: `local-${hash}`,
     title: `Board ${hash.slice(0, 4).toUpperCase()}`,
-    creator: "Created by you · local prototype",
+    creator: `Created by u/${PROTOTYPE_USER_USERNAME}`,
+    columns: EDITOR_COLUMNS,
+    rows: EDITOR_ROWS,
     board: [...editorBoard],
     hash,
   };
@@ -1312,7 +1450,6 @@ dom.soundToggle.addEventListener("click", async () => {
   const muted = audio.toggle();
   dom.soundToggle.setAttribute("aria-pressed", muted ? "true" : "false");
   dom.soundToggle.setAttribute("aria-label", muted ? "Turn sound on" : "Mute sound");
-  dom.soundIcon.textContent = muted ? "×" : "♪";
 });
 
 dom.openPlay.addEventListener("click", () => {
@@ -1347,6 +1484,8 @@ dom.playDraft.addEventListener("click", () => {
     id: "draft",
     title: "Untitled draft",
     creator: "Draft · not posted",
+    columns: EDITOR_COLUMNS,
+    rows: EDITOR_ROWS,
     board,
     hash: hashBoard(board),
   };
