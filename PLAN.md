@@ -118,7 +118,7 @@ Create must also be available from the app's front screen, so authoring never de
 
 The final post-game flow is refined screen by screen using the supplied Syllo Reddit-game references. Preserve the requirements recorded for each accepted screen while adapting Art Breaker's copy and visual system rather than copying Syllo's branding.
 
-Percentile should be computed against unique players' best verified scores for that board. The provisional definition is the percentage of ranked players with a strictly lower score; specify rounding and score/time tie-breaking before freezing the leaderboard rules.
+Percentile is computed against unique players' best verified scores for that board. It is the rounded percentage of other ranked players with a strictly lower score: exclude the current player from both the comparison set and denominator. Thus first place among six players is better than 100% (5/5), while second place among two players is better than 0% (0/1). Tied primary scores do not count as lower; score/time tie-breaking affects rank but not this strict-lower percentile.
 
 ### User board creation and immediate publishing
 
@@ -619,7 +619,7 @@ All issues found in the original `index.html` prototype are required regression 
 
 ### Manual feel tests
 
-- In `r/ArtBreakerBeta` only, seed 30 idempotent visual-test scores for Rainbow No. 1 so all leaderboard pages and pagination can be reviewed with realistic data. Never seed these fixtures in another subreddit or board.
+- Do not seed synthetic leaderboard scores in production communities; leaderboard entries must come from real signed-in player runs.
 - paddle precision at center and both edges;
 - launch readability without instructions;
 - combo legibility during heavy effects;
@@ -658,7 +658,7 @@ Exit criteria: deterministic test snapshots match across runs and simulated rend
 - Port the prototype visual system and Canvas renderer.
 - Validate expanded mode in Reddit's simulator and on real mobile clients.
 
-Exit criteria: a hard-coded board can be opened from inline view, played, and edited in the test subreddit.
+Exit criteria: a hard-coded board can be opened from inline view, played, and edited in `r/ArtBreaker`.
 
 ### Phase 3 — Community publishing
 
