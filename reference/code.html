@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NEON BREAKER DX // 1986 COIN-OP EDITION</title>
+<!-- Google Fonts: 8-Bit Pixel Arcade 'Press Start 2P' -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          fontFamily: {
+            pixel: ['"Press Start 2P"', 'monospace'],
+          },
+          colors: {
+            arcade: {
+              bg: '#101114',
+              cabinet: '#181920',
+              border: '#343644',
+              bezel: '#242630',
+              silver: '#d1d5db',
+              silverDark: '#6b7280',
+              red: '#e63946',
+              orange: '#f77f00',
+              yellow: '#fcbf49',
+              green: '#2ec4b6',
+              blue: '#1d4ed8',
+              purple: '#9d4edd',
+              white: '#f8fafc',
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0b0c10;
+      color: #f1f5f9;
+      font-family: 'Press Start 2P', monospace;
+      image-rendering: pixelated;
+      -webkit-font-smoothing: none;
+    }
+    /* Flat retro brick 3D bevel bevel without blur or glow */
+    .arcade-brick {
+      box-shadow: inset 2px 2px 0px rgba(255,255,255,0.45), inset -2px -2px 0px rgba(0,0,0,0.55);
+    }
+    .arcade-frame {
+      box-shadow: inset 4px 4px 0px #4b5162, inset -4px -4px 0px #121318;
+    }
+    .arcade-paddle {
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.6), inset 0 -2px 0 rgba(0,0,0,0.6);
+    }
+    .arcade-pill {
+      box-shadow: inset 1px 1px 0 rgba(255,255,255,0.6), inset -1px -1px 0 rgba(0,0,0,0.7);
+    }
+    .arcade-button {
+      box-shadow: inset 2px 2px 0 #52576b, inset -2px -2px 0 #0f1015;
+    }
+    .arcade-button:active {
+      box-shadow: inset -2px -2px 0 #52576b, inset 2px 2px 0 #0f1015;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center select-none bg-arcade-bg p-2 md:p-4 text-xs antialiased">
+<!-- TOP HEADER / CABINET BRAND STRIP -->
+<header class="w-full max-w-4xl flex items-center justify-between border-b-4 border-arcade-border pb-3 mb-3">
+<div class="flex items-center gap-3">
+<div class="w-7 h-7 bg-arcade-red flex items-center justify-center border-2 border-arcade-white">
+<span class="text-arcade-white text-[10px] font-bold">DX</span>
+</div>
+<div>
+<h1 class="text-sm md:text-base text-arcade-white tracking-wider">NEON BREAKER</h1>
+<p class="text-[9px] text-arcade-yellow tracking-widest mt-1">COIN-OP MATRIX 1986</p>
+</div>
+</div>
+<!-- Quick Utility Bar -->
+<div class="flex items-center gap-4 text-[10px]">
+<div class="hidden sm:flex items-center gap-1 bg-arcade-cabinet px-2 py-1.5 border-2 border-arcade-border">
+<span class="text-arcade-silver">SOUND:</span>
+<span class="text-arcade-green" id="audio-status">ON</span>
+</div>
+<div class="flex items-center gap-1 bg-arcade-cabinet px-2 py-1.5 border-2 border-arcade-border">
+<span class="text-arcade-yellow">STAGE:</span>
+<span class="text-arcade-white">04</span>
+</div>
+<button class="arcade-button bg-arcade-bezel hover:bg-arcade-border text-arcade-white p-1.5 border border-arcade-silver/40 text-[10px] flex items-center justify-center" id="toggle-sound-btn">
+<span class="material-symbols-outlined text-sm leading-none">volume_up</span>
+</button>
+</div>
+</header>
+<!-- AUTHENTIC RETRO COIN-OP HUD -->
+<div class="w-full max-w-4xl bg-arcade-cabinet border-4 border-arcade-border p-3 mb-3">
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center sm:text-left">
+<!-- 1UP SCORE -->
+<div class="flex flex-col">
+<span class="text-[9px] text-arcade-red tracking-widest mb-1">1UP SCORE</span>
+<span class="text-xs md:text-sm text-arcade-white tracking-widest" id="player-score">024,850</span>
+</div>
+<!-- HIGH SCORE -->
+<div class="flex flex-col">
+<span class="text-[9px] text-arcade-yellow tracking-widest mb-1">HIGH SCORE</span>
+<span class="text-xs md:text-sm text-arcade-yellow tracking-widest">099,400</span>
+</div>
+<!-- TIME -->
+<div class="flex flex-col sm:items-center">
+<span class="text-[9px] text-arcade-green tracking-widest mb-1">STAGE TIME</span>
+<span class="text-xs md:text-sm text-arcade-green tracking-widest" id="game-timer">02:45</span>
+</div>
+<!-- LIVES / SHIPS -->
+<div class="flex flex-col sm:items-end">
+<span class="text-[9px] text-arcade-silver tracking-widest mb-1">RESERVES</span>
+<div class="flex items-center gap-2 mt-0.5">
+<!-- Mini flat retro pixel paddle icons for lives -->
+<div class="flex items-center gap-1">
+<div class="w-6 h-2 bg-arcade-white border border-black flex">
+<span class="w-1.5 h-full bg-arcade-red"></span>
+<span class="flex-1 h-full bg-arcade-silver"></span>
+<span class="w-1.5 h-full bg-arcade-blue"></span>
+</div>
+<div class="w-6 h-2 bg-arcade-white border border-black flex">
+<span class="w-1.5 h-full bg-arcade-red"></span>
+<span class="flex-1 h-full bg-arcade-silver"></span>
+<span class="w-1.5 h-full bg-arcade-blue"></span>
+</div>
+<div class="w-6 h-2 bg-arcade-white border border-black flex">
+<span class="w-1.5 h-full bg-arcade-red"></span>
+<span class="flex-1 h-full bg-arcade-silver"></span>
+<span class="w-1.5 h-full bg-arcade-blue"></span>
+</div>
+</div>
+<span class="text-[10px] text-arcade-white ml-1">x3</span>
+</div>
+</div>
+</div>
+</div>
+<!-- MAIN PLAY ARENA: EXPANDED RETRO BEVELED CHASSIS -->
+<main class="w-full max-w-4xl flex-1 flex flex-col items-center justify-center">
+<div class="w-full bg-arcade-cabinet border-4 border-arcade-border p-2 sm:p-3">
+<!-- Arcade Inner Play Screen with Double Frame Bevel -->
+<div class="relative w-full h-[520px] md:h-[580px] bg-arcade-bg border-4 border-arcade-silver/80 arcade-frame overflow-hidden flex flex-col justify-between">
+<!-- Matte Grid Coordinates on Screen Margin -->
+<div class="w-full px-3 pt-2 pb-1 border-b-2 border-arcade-border/60 flex justify-between text-[8px] text-arcade-silver/60">
+<span>FIELD-A // MATTE MATRIX</span>
+<span>SPEED: NORM</span>
+<span>BONUS: C-CAPSULE</span>
+</div>
+<!-- RETRO BRICK FIELD MATRIX -->
+<div class="w-full px-3 sm:px-6 pt-3 flex flex-col gap-1.5">
+<!-- Row 1: Matte Red Bricks (Top tier / 100 PTS) -->
+<div class="grid grid-cols-10 gap-1.5">
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+<div class="h-5 bg-arcade-red arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">100</div>
+</div>
+<!-- Row 2: Matte Orange Bricks (90 PTS) -->
+<div class="grid grid-cols-10 gap-1.5">
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+<div class="h-5 bg-arcade-orange arcade-brick flex items-center justify-center text-[7px] text-black font-bold">90</div>
+</div>
+<!-- Row 3: Matte Yellow Bricks (80 PTS) -->
+<div class="grid grid-cols-10 gap-1.5">
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+<!-- Broken Slot (Simulating destroyed brick) -->
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+<div class="h-5 bg-arcade-yellow arcade-brick flex items-center justify-center text-[7px] text-black font-bold">80</div>
+</div>
+<!-- Row 4: Matte Green Bricks (70 PTS) -->
+<div class="grid grid-cols-10 gap-1.5">
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+<div class="h-5 bg-arcade-green arcade-brick flex items-center justify-center text-[7px] text-black font-bold">70</div>
+</div>
+<!-- Row 5: Matte Cobalt Blue Bricks (60 PTS) -->
+<div class="grid grid-cols-10 gap-1.5">
+<div class="h-5 bg-arcade-blue arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">60</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-blue arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">60</div>
+<div class="h-5 bg-arcade-blue arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">60</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-blue arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">60</div>
+<div class="h-5 bg-arcade-blue arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">60</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-blue arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">60</div>
+</div>
+<!-- Row 6: Multi-Hit Matte Silver Bricks (Steel 2-hit) & Magenta Bricks -->
+<div class="grid grid-cols-10 gap-1.5">
+<div class="h-5 bg-arcade-purple arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">50</div>
+<div class="h-5 bg-arcade-silver arcade-brick flex items-center justify-center text-[7px] text-black font-bold border border-arcade-white">2X</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-purple arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">50</div>
+<div class="h-5 bg-arcade-silver arcade-brick flex items-center justify-center text-[7px] text-black font-bold border border-arcade-white">2X</div>
+<div class="h-5 bg-arcade-silver arcade-brick flex items-center justify-center text-[7px] text-black font-bold border border-arcade-white">2X</div>
+<div class="h-5 bg-arcade-purple arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">50</div>
+<div class="h-5 invisible"></div>
+<div class="h-5 bg-arcade-silver arcade-brick flex items-center justify-center text-[7px] text-black font-bold border border-arcade-white">2X</div>
+<div class="h-5 bg-arcade-purple arcade-brick flex items-center justify-center text-[7px] text-arcade-white font-bold">50</div>
+</div>
+</div>
+<!-- DYNAMIC MID-AIR RETRO GAMEPLAY ELEMENTS -->
+<div class="relative flex-1 w-full pointer-events-none">
+<!-- Crisp Floating Floating Pop Score -->
+<div class="absolute top-[28%] left-[48%] -translate-x-1/2 text-[9px] text-arcade-yellow font-bold">
+            +100
+          </div>
+<!-- Classic Falling Bonus Capsule: [L] Laser -->
+<div class="absolute top-[42%] left-[26%] w-8 h-4 rounded-full bg-arcade-red border border-arcade-white arcade-pill flex items-center justify-center">
+<span class="text-[8px] text-arcade-white font-bold leading-none">L</span>
+</div>
+<!-- Classic Falling Bonus Capsule: [C] Catch -->
+<div class="absolute top-[58%] left-[68%] w-8 h-4 rounded-full bg-arcade-green border border-arcade-white arcade-pill flex items-center justify-center">
+<span class="text-[8px] text-black font-bold leading-none">C</span>
+</div>
+<!-- Authentic Retro Pixel Ball (Square 8-bit or crisp flat circle) -->
+<div class="absolute top-[62%] left-[45%] w-3 h-3 bg-arcade-white border border-black"></div>
+<!-- Secondary Multi-Ball (Crisp, Solid, Non-Glowing) -->
+<div class="absolute top-[48%] left-[58%] w-3 h-3 bg-arcade-yellow border border-black"></div>
+</div>
+<!-- LOWER PLAY ZONE: RETRO CLASSIC ARCADE PADDLE -->
+<div class="w-full flex flex-col items-center pb-5 px-4 relative">
+<!-- Segmented Classic Vaus / Retro Breakout Paddle -->
+<div class="w-36 sm:w-44 h-4 bg-arcade-cabinet border-2 border-arcade-white arcade-paddle flex items-stretch overflow-hidden">
+<!-- Left Tip (Matte Red) -->
+<div class="w-3 bg-arcade-red border-r border-black"></div>
+<!-- Main Silver Core -->
+<div class="flex-1 bg-arcade-silver flex items-center justify-center">
+<span class="w-8 h-1 bg-arcade-silverDark"></span>
+</div>
+<!-- Right Tip (Matte Blue) -->
+<div class="w-3 bg-arcade-blue border-l border-black"></div>
+</div>
+<!-- Bottom Hazard Zone Line -->
+<div class="w-full mt-4 pt-1 border-t-2 border-arcade-border flex justify-between text-[8px] text-arcade-silver/50 tracking-wider">
+<span>◄ LEFT [A]</span>
+<span class="text-arcade-red">DROP HORIZON</span>
+<span>RIGHT [D] ►</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BOTTOM CONTROL & COIN-OP FOOTER DECK -->
+<footer class="w-full max-w-4xl mt-3 flex flex-col sm:flex-row items-center justify-between gap-3 bg-arcade-cabinet border-4 border-arcade-border p-3 text-[10px]">
+<!-- Coin-Op Credits -->
+<div class="flex items-center gap-2">
+<span class="text-arcade-yellow">CREDIT</span>
+<span class="text-arcade-white font-bold bg-black px-2 py-0.5 border border-arcade-border">02</span>
+<span class="text-[8px] text-arcade-green animate-pulse ml-1">[INSERT 100 YEN]</span>
+</div>
+<!-- Arcade Action Controls -->
+<div class="flex items-center gap-3">
+<button class="arcade-button bg-arcade-bezel hover:bg-arcade-border text-arcade-white px-3 py-1.5 border border-arcade-silver/40 text-[9px] flex items-center gap-1.5 cursor-pointer" id="btn-pause">
+<span class="material-symbols-outlined text-xs">pause</span>
+<span id="pause-label">PAUSE [P]</span>
+</button>
+<button class="arcade-button bg-arcade-bezel hover:bg-arcade-border text-arcade-silver px-3 py-1.5 border border-arcade-silver/40 text-[9px] flex items-center gap-1.5 cursor-pointer" id="btn-reset">
+<span class="material-symbols-outlined text-xs">restart_alt</span>
+<span>RESET</span>
+</button>
+</div>
+<!-- Hardware / System Signature -->
+<div class="text-[8px] text-arcade-silver/60 tracking-wider">
+      TAITO / NAMCO HOMAGE // REV 1.04
+    </div>
+</footer>
+<!-- Retro Minimal Interaction Logic -->
+<script>
+    (() => {
+      const pauseBtn = document.getElementById('btn-pause');
+      const pauseLabel = document.getElementById('pause-label');
+      let isPaused = false;
+
+      if (pauseBtn) {
+        pauseBtn.addEventListener('click', () => {
+          isPaused = !isPaused;
+          if (isPaused) {
+            pauseLabel.textContent = 'RESUME [P]';
+            pauseBtn.classList.add('bg-arcade-red', 'text-arcade-white');
+            pauseBtn.classList.remove('bg-arcade-bezel');
+          } else {
+            pauseLabel.textContent = 'PAUSE [P]';
+            pauseBtn.classList.remove('bg-arcade-red');
+            pauseBtn.classList.add('bg-arcade-bezel');
+          }
+        });
+      }
+
+      // Sound Toggle
+      const soundBtn = document.getElementById('toggle-sound-btn');
+      const audioStatus = document.getElementById('audio-status');
+      let soundActive = true;
+      if (soundBtn && audioStatus) {
+        soundBtn.addEventListener('click', () => {
+          soundActive = !soundActive;
+          if (soundActive) {
+            audioStatus.textContent = 'ON';
+            audioStatus.className = 'text-arcade-green';
+            soundBtn.innerHTML = '<span class="material-symbols-outlined text-sm leading-none">volume_up</span>';
+          } else {
+            audioStatus.textContent = 'OFF';
+            audioStatus.className = 'text-arcade-silver/50';
+            soundBtn.innerHTML = '<span class="material-symbols-outlined text-sm leading-none">volume_off</span>';
+          }
+        });
+      }
+
+      // Keyboard Controls (P for pause)
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'p' || e.key === 'P') {
+          if (pauseBtn) pauseBtn.click();
+        }
+      });
+    })();
+  </script>
+</body></html>
