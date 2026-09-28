@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "devvit-features": {
+      "source": "Montoya/devvit-skills",
+      "sourceType": "github",
+      "skillPath": "skills/devvit-features/SKILL.md",
+      "computedHash": "88b74c0f56bf780ca0223a5dd80086d92d9e1d99674a9eda555ad06ff7688812"
+    },
+    "devvit-games": {
+      "source": "Montoya/devvit-skills",
+      "sourceType": "github",
+      "skillPath": "skills/devvit-games/SKILL.md",
+      "computedHash": "a77ec6101b0df2078a77e9beddabe9a82ec9f23f16d48def19445dac164eb688"
+    },
+    "devvit-performance": {
+      "source": "Montoya/devvit-skills",
+      "sourceType": "github",
+      "skillPath": "skills/devvit-performance/SKILL.md",
+      "computedHash": "6646aa02bd08a99229379ad463ce0642224ddbbd0aa0a15e78e8597b69ae3dab"
+    },
+    "devvit-testing": {
+      "source": "Montoya/devvit-skills",
+      "sourceType": "github",
+      "skillPath": "skills/devvit-testing/SKILL.md",
+      "computedHash": "1e2ab0db2e3d3fe81fadb213cf464e243b8e1256ae831781a35a2e6c908ef6d2"
+    },
+    "devvit-ui": {
+      "source": "Montoya/devvit-skills",
+      "sourceType": "github",
+      "skillPath": "skills/devvit-ui/SKILL.md",
+      "computedHash": "81e42068f51b2a6e2c30936b447a82782e79a79b23e9ac2a70204d098755dc84"
+    }
+  }
+}
