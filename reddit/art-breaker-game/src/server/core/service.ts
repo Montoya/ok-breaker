@@ -15,6 +15,7 @@ import {
   makeSeedCells,
   pointsForCombo,
   scoreInputSchema,
+  scoreValue,
   type Board,
   type LeaderboardEntry,
   type ScoreInput,
@@ -41,6 +42,7 @@ import {
   saveDraft,
   saveScore,
   scoreRankMember,
+  scoreRankPrefix,
 } from './store';
 import { SHARE_IMAGE_URL } from './share-image';
 
@@ -382,16 +384,18 @@ export const publishModeratorBoard = async (
   return publishBoardPost(board, 'USER');
 };
 
-const compareScores = (left: ScoreRecord, right: ScoreRecord): number =>
-  right.score - left.score ||
-  left.elapsedMs - right.elapsedMs ||
-  left.achievedAt - right.achievedAt;
+const compareScores = (left: ScoreRecord, right: ScoreRecord): number => {
+  const leftScore = scoreValue(left.score);
+  const rightScore = scoreValue(right.score);
+  if (leftScore !== rightScore) return leftScore > rightScore ? -1 : 1;
+  return left.elapsedMs - right.elapsedMs || left.achievedAt - right.achievedAt;
+};
 
 export const leaderboardFor = async (
   boardId: string,
   userId: string | null,
   page: number,
-  candidateScore?: number
+  candidateScore?: string | number
 ) => {
   await ensureScoreRanks(boardId);
   const offset = Math.max(0, Math.min(9, page)) * 10;
@@ -414,8 +418,8 @@ export const leaderboardFor = async (
       : undefined,
     percentileScore === undefined
       ? undefined
-      : redis.zRange(keys.scoreRanks(boardId), percentileScore, '+inf', {
-          by: 'score',
+      : redis.zRange(keys.scoreRanks(boardId), `[${scoreRankPrefix(percentileScore)}`, '+', {
+          by: 'lex',
           limit: { offset: 0, count: 1 },
         }),
   ]);
@@ -464,7 +468,7 @@ export const submitScore = async (deviceId: string, raw: unknown) => {
       message: 'Invalid run transcript.',
     });
   }
-  let theoreticalMaximum = 0;
+  let theoreticalMaximum = 0n;
   for (let combo = 0; combo < brickCount; combo += 1)
     theoreticalMaximum += pointsForCombo(combo);
   const maximumWithClearBonus = scoreForClear(
@@ -472,7 +476,7 @@ export const submitScore = async (deviceId: string, raw: unknown) => {
     input.paddleHits,
     input.paddleHits
   );
-  if (input.score > (input.cleared ? maximumWithClearBonus : theoreticalMaximum))
+  if (scoreValue(input.score) > (input.cleared ? maximumWithClearBonus : theoreticalMaximum))
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid score.' });
   if (input.baseScore !== undefined) {
     const expectedScore = input.cleared
@@ -482,7 +486,7 @@ export const submitScore = async (deviceId: string, raw: unknown) => {
           input.accuracyAttempts ?? 0
         )
       : input.baseScore;
-    if (input.baseScore > theoreticalMaximum || input.score !== expectedScore)
+    if (scoreValue(input.baseScore) > theoreticalMaximum || scoreValue(input.score) !== expectedScore)
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid score.' });
   }
   if (!actor.authenticated) {

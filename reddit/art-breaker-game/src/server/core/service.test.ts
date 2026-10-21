@@ -86,6 +86,31 @@ test('a leaderboard with one player reports a 100 percentile', async () => {
   expect(ranking.percentile).toBe(100);
 });
 
+test('leaderboard keeps adjacent huge scores in their exact order', async () => {
+  const boardId = 'huge-score-board';
+  const scores: ScoreRecord[] = ['9007199254740992', '9007199254740993', '28517864280727814000'].map((score, index) => ({
+    boardId,
+    userId: `huge-${index}`,
+    username: `huge_${index}`,
+    score,
+    elapsedMs: 10_000,
+    cleared: true,
+    brickHits: 1,
+    paddleHits: 1,
+    pickups: 0,
+    achievedAt: index,
+  }));
+  await Promise.all(scores.map(saveScore));
+
+  const ranking = await leaderboardFor(boardId, 'huge-1', 0);
+  expect(ranking.entries.map((entry) => entry.score)).toEqual([
+    '28517864280727814000', '9007199254740993', '9007199254740992',
+  ]);
+  expect(ranking.currentRank).toBe(2);
+  expect(ranking.percentile).toBe(50);
+  expect((await leaderboardFor(boardId, null, 0, '9007199254740992')).percentile).toBe(0);
+});
+
 test('the first of six players reports a 100 percentile', async () => {
   const boardId = 'first-of-six-board';
   const scores: ScoreRecord[] = [100, 200, 300, 400, 500, 600].map(

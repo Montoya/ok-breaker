@@ -24,8 +24,8 @@ type Floater = { x: number; y: number; text: string; color: string; life: number
 type LightningArc = { x1: number; y1: number; x2: number; y2: number; life: number; maxLife: number };
 type BrickCollision = { brick: Brick; normalX: number; normalY: number };
 
-export type GameHud = { score: number; combo: number; remaining: number };
-export type RunResult = { score: number; baseScore: number; elapsedMs: number; cleared: boolean; brickHits: number; paddleHits: number; accuracyHits: number; accuracyAttempts: number; pickups: number };
+export type GameHud = { score: string; combo: number; remaining: number };
+export type RunResult = { score: string; baseScore: string; elapsedMs: number; cleared: boolean; brickHits: number; paddleHits: number; accuracyHits: number; accuracyAttempts: number; pickups: number };
 type EngineCallbacks = { onHud: (hud: GameHud) => void; onFinish: (result: RunResult) => void };
 
 const BASE_SPEED = 240;
@@ -117,7 +117,7 @@ export class ArtBreakerEngine {
   private lightningArcs: LightningArc[] = [];
   private powerPlan = new Map<number, PowerUpName>();
   private random: () => number;
-  private score = 0;
+  private score = 0n;
   private combo = 0;
   private remaining = 0;
   private simulationTime = 0;
@@ -181,7 +181,7 @@ export class ArtBreakerEngine {
 
   reset(): void {
     this.state = 'ready';
-    this.score = 0; this.combo = 0; this.simulationTime = 0; this.brickHits = 0; this.paddleHits = 0; this.accuracyHits = 0; this.accuracyAttempts = 0; this.pickupCount = 0;
+    this.score = 0n; this.combo = 0; this.simulationTime = 0; this.brickHits = 0; this.paddleHits = 0; this.accuracyHits = 0; this.accuracyAttempts = 0; this.pickupCount = 0;
     this.pickups = []; this.bullets = []; this.particles = []; this.floaters = []; this.lightningArcs = []; this.keys.clear();
     this.wheelDirection = 0; this.wheelUntil = 0;
     this.speedTier = 0; this.shake = 0; this.lastWallSound = -1;
@@ -429,7 +429,7 @@ export class ArtBreakerEngine {
     const points = pointsForCombo(this.combo); this.score += points; this.combo += 1;
     const color = PALETTE[brick.value - 1]?.hex ?? '#f6f4eb';
     this.burst(brick.x + brick.width / 2, brick.y + brick.height / 2, color, source === 'laser' ? 5 : 9, 115);
-    if (points >= 300 || this.combo % 5 === 0) this.addFloater(brick.x + 9, brick.y, `+${points.toLocaleString('en-US')}`, color);
+    if (points >= 300n || this.combo % 5 === 0) this.addFloater(brick.x + 9, brick.y, `+${points.toLocaleString('en-US')}`, color);
     this.shake = Math.max(this.shake, Math.min(3.5, 0.8 + this.combo * 0.04));
     const row = Math.floor(brick.index / this.board.columns); const pitchStep = this.board.rows - 1 - row;
     if (this.combo % 10 === 0) this.audio.effect('combo', pitchStep); else this.audio.effect('brick', pitchStep);
@@ -529,7 +529,7 @@ export class ArtBreakerEngine {
     const score = cleared
       ? scoreForClear(baseScore, this.accuracyHits, this.accuracyAttempts)
       : baseScore;
-    const result = { score, baseScore, elapsedMs: Math.round(this.simulationTime * 1000), cleared, brickHits: this.brickHits, paddleHits: this.paddleHits, accuracyHits: this.accuracyHits, accuracyAttempts: this.accuracyAttempts, pickups: this.pickupCount };
+    const result = { score: score.toString(), baseScore: baseScore.toString(), elapsedMs: Math.round(this.simulationTime * 1000), cleared, brickHits: this.brickHits, paddleHits: this.paddleHits, accuracyHits: this.accuracyHits, accuracyAttempts: this.accuracyAttempts, pickups: this.pickupCount };
     this.finishTimer = window.setTimeout(() => {
       this.finishTimer = 0;
       this.callbacks.onFinish(result);
@@ -539,7 +539,7 @@ export class ArtBreakerEngine {
   private emitHud(force = false): void {
     if (!force && this.simulationTime - this.lastHud < 0.08) return;
     this.lastHud = this.simulationTime;
-    this.callbacks.onHud({ score: this.score, combo: this.combo, remaining: this.remaining });
+    this.callbacks.onHud({ score: this.score.toString(), combo: this.combo, remaining: this.remaining });
   }
 
   private draw(): void {

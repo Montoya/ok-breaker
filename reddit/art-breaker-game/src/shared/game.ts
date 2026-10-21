@@ -96,10 +96,19 @@ export const boardInputSchema = z.object({
   title: z.string().trim().max(100).optional(),
 });
 
+// Scores travel as decimal strings because JSON numbers lose integer precision.
+export const scoreSchema = z.union([
+  z.string().regex(/^(0|[1-9]\d{0,39})$/),
+  z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+]);
+export const scoreValue = (score: string | number): bigint => BigInt(score);
+export const formatScore = (score: string | number): string =>
+  scoreValue(score).toLocaleString('en-US');
+
 export const scoreInputSchema = z.object({
   boardId: z.string().min(1).max(100),
-  score: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  baseScore: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+  score: scoreSchema,
+  baseScore: scoreSchema.optional(),
   elapsedMs: z.number().int().min(0).max(3_600_000),
   cleared: z.boolean(),
   brickHits: z.number().int().min(0).max(EDITOR_COLUMNS * EDITOR_ROWS),
@@ -121,7 +130,7 @@ export type ScoreRecord = z.infer<typeof scoreRecordSchema>;
 export type LeaderboardEntry = {
   rank: number;
   username: string;
-  score: number;
+  score: string | number;
   elapsedMs: number;
   cleared: boolean;
 };
@@ -196,8 +205,11 @@ export const makePowerPlan = (board: Board): Map<number, PowerUpName> => {
   }));
 };
 
-export const pointsForCombo = (comboBeforeHit: number): number =>
-  Math.round(100 * 1.15 ** comboBeforeHit);
+export const pointsForCombo = (comboBeforeHit: number): bigint => {
+  const numerator = 100n * 115n ** BigInt(comboBeforeHit);
+  const denominator = 100n ** BigInt(comboBeforeHit);
+  return (numerator * 2n + denominator) / (2n * denominator);
+};
 
 export const accuracyFor = (hits: number, attempts: number): number =>
   attempts > 0
@@ -219,15 +231,16 @@ export const resolveAccuracyAttempt = (
 };
 
 export const scoreForClear = (
-  baseScore: number,
+  baseScore: string | number | bigint,
   accuracyHits: number,
   accuracyAttempts: number
-): number =>
-  Math.round(
-    baseScore *
-      CLEAR_SCORE_MULTIPLIER *
-      (1 + accuracyFor(accuracyHits, accuracyAttempts))
-  );
+): bigint => {
+  const accuracyTenThousandths = accuracyAttempts > 0
+    ? Math.floor(Math.max(0, Math.min(1, accuracyHits / accuracyAttempts)) * 10_000)
+    : 0;
+  const numerator = BigInt(baseScore) * 5n * BigInt(10_000 + accuracyTenThousandths);
+  return (numerator + 20_000n) / 40_000n;
+};
 
 export const formatTime = (elapsedMs: number): string => {
   const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
@@ -237,8 +250,8 @@ export const formatTime = (elapsedMs: number): string => {
 };
 
 export const formatAutomaticScoreComment = (
-  score: number,
+  score: string | number,
   elapsedMs: number,
   cleared: boolean
 ): string =>
-  `${score.toLocaleString('en-US')} points in ${formatTime(elapsedMs)}${cleared ? ' | Cleared!' : ''}`;
+  `${formatScore(score)} points in ${formatTime(elapsedMs)}${cleared ? ' | Cleared!' : ''}`;

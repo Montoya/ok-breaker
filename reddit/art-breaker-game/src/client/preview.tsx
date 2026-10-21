@@ -10,6 +10,7 @@ import {
 import { createRoot } from 'react-dom/client';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../server/trpc';
+import { formatScore } from '../shared/game';
 import { trpc } from './trpc';
 import { BoardCanvas } from './board-canvas';
 import { ArcadeButton, BoardLoader, Header } from './chrome';
@@ -110,7 +111,7 @@ export const Preview = () => {
                   <small>BEST</small>
                 </button>
                 <strong>
-                  {data.ranking.best?.score.toLocaleString('en-US') ?? '—'}
+                  {data.ranking.best ? formatScore(data.ranking.best.score) : '—'}
                 </strong>
               </div>
             </div>

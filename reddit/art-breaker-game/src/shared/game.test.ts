@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLEAR_SCORE_MULTIPLIER, EDITOR_COLUMNS, EDITOR_ROWS, FORMAT_VERSION, LEGACY_COLUMNS, LEGACY_ROWS, POWER_UPS, accuracyFor, boardSchema, canonicalBoard, formatAccuracyPercent, formatAutomaticScoreComment, gameplaySeedFor, makePowerPlan, makeSeedCells, pointsForCombo, resolveAccuracyAttempt, scoreForClear } from './game';
+import { CLEAR_SCORE_MULTIPLIER, EDITOR_COLUMNS, EDITOR_ROWS, FORMAT_VERSION, LEGACY_COLUMNS, LEGACY_ROWS, POWER_UPS, accuracyFor, boardSchema, canonicalBoard, formatAccuracyPercent, formatAutomaticScoreComment, formatScore, gameplaySeedFor, makePowerPlan, makeSeedCells, pointsForCombo, resolveAccuracyAttempt, scoreForClear, scoreSchema } from './game';
 
 describe('shared game rules', () => {
   it('keeps the seven-color seed stable', () => {
@@ -35,9 +35,18 @@ describe('shared game rules', () => {
   });
 
   it('compounds combo points', () => {
-    expect(pointsForCombo(0)).toBe(100);
-    expect(pointsForCombo(1)).toBe(115);
-    expect(pointsForCombo(10)).toBeGreaterThan(400);
+    expect(pointsForCombo(0)).toBe(100n);
+    expect(pointsForCombo(1)).toBe(115n);
+    expect(pointsForCombo(10)).toBeGreaterThan(400n);
+    expect(pointsForCombo(300)).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
+  });
+
+  it('preserves scores above the safe integer range as decimal strings', () => {
+    const score = '28517864280727814000';
+    expect(scoreSchema.parse(score)).toBe(score);
+    expect(scoreSchema.safeParse(Number(score)).success).toBe(false);
+    expect(formatScore(score)).toBe('28,517,864,280,727,814,000');
+    expect(scoreForClear(score, 4, 4)).toBe(71_294_660_701_819_535_000n);
   });
 
   it('applies the clear and accuracy bonuses to the base score', () => {
@@ -47,9 +56,9 @@ describe('shared game rules', () => {
     expect(accuracyFor(75_968, 100_000)).toBe(0.7596);
     expect(formatAccuracyPercent(0.7596)).toBe('75.96%');
     expect(formatAccuracyPercent(0.75)).toBe('75%');
-    expect(scoreForClear(1_000, 0, 4)).toBe(1_250);
-    expect(scoreForClear(1_000, 3, 4)).toBe(2_188);
-    expect(scoreForClear(1_000, 4, 4)).toBe(2_500);
+    expect(scoreForClear(1_000, 0, 4)).toBe(1_250n);
+    expect(scoreForClear(1_000, 3, 4)).toBe(2_188n);
+    expect(scoreForClear(1_000, 4, 4)).toBe(2_500n);
   });
 
   it('counts repeat returns as misses without penalizing drained multiballs', () => {

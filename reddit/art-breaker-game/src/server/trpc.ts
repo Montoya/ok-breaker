@@ -7,6 +7,7 @@ import {
   boardInputSchema,
   formatAutomaticScoreComment,
   scoreInputSchema,
+  scoreSchema,
   type Board,
 } from '../shared/game';
 import type { Context } from './context';
@@ -136,7 +137,7 @@ export const appRouter = t.router({
         deviceInput.extend({
           boardId: z.string().min(1).max(100),
           customText: z.string().trim().max(500),
-          score: z.number().int().nonnegative(),
+          score: scoreSchema,
           elapsedMs: z.number().int().nonnegative().max(3_600_000),
           cleared: z.boolean(),
           submissionId: z.string().uuid(),

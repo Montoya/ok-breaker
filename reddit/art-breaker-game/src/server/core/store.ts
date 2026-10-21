@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   boardSchema,
   scoreRecordSchema,
+  scoreValue,
   type Board,
   type ScoreRecord,
 } from '../../shared/game';
@@ -31,8 +32,8 @@ export const keys = {
   commentRefs: 'ab:v1:commentRefs',
   drafts: (userId: string) => `ab:v1:drafts:${userId}`,
   scores: (boardId: string) => `ab:v1:scores:${boardId}`,
-  scoreRanks: (boardId: string) => `ab:v1:scoreRanks:${boardId}`,
-  scoreRanksReady: (boardId: string) => `ab:v1:scoreRanksReady:${boardId}`,
+  scoreRanks: (boardId: string) => `ab:v2:scoreRanks:${boardId}`,
+  scoreRanksReady: (boardId: string) => `ab:v2:scoreRanksReady:${boardId}`,
   comments: (boardId: string) => `ab:v1:comments:${boardId}`,
 };
 
@@ -176,10 +177,13 @@ const invertedRankPart = (maximum: number, value: number, width: number) =>
     .padStart(width, '0');
 
 export const scoreRankMember = (score: ScoreRecord): string =>
-  `${invertedRankPart(3_600_000, score.elapsedMs, 7)}:${invertedRankPart(Number.MAX_SAFE_INTEGER, score.achievedAt, 16)}:${Buffer.from(score.userId).toString('base64url')}`;
+  `${scoreRankPrefix(score.score)}${invertedRankPart(3_600_000, score.elapsedMs, 7)}:${invertedRankPart(Number.MAX_SAFE_INTEGER, score.achievedAt, 16)}:${Buffer.from(score.userId).toString('base64url')}`;
+
+export const scoreRankPrefix = (score: string | number): string =>
+  `${scoreValue(score).toString().padStart(40, '0')}:`;
 
 const userIdFromScoreRankMember = (member: string): string | undefined => {
-  const encoded = member.split(':', 3)[2];
+  const encoded = member.split(':', 4)[3];
   if (!encoded) return undefined;
   try {
     return Buffer.from(encoded, 'base64url').toString();
@@ -198,7 +202,7 @@ export const saveScore = async (score: ScoreRecord): Promise<void> => {
     }),
     redis.zAdd(keys.scoreRanks(parsed.boardId), {
       member: nextMember,
-      score: parsed.score,
+      score: 0,
     }),
     ...(previous && scoreRankMember(previous) !== nextMember
       ? [
@@ -218,7 +222,7 @@ export const ensureScoreRanks = async (boardId: string): Promise<void> => {
       keys.scoreRanks(boardId),
       ...scores.map((score) => ({
         member: scoreRankMember(score),
-        score: score.score,
+        score: 0,
       }))
     );
   await redis.set(keys.scoreRanksReady(boardId), 'yes');
@@ -295,6 +299,8 @@ export const deleteBoardForPost = async (postId: string): Promise<boolean> => {
     redis.del(keys.scores(boardId)),
     redis.del(keys.scoreRanks(boardId)),
     redis.del(keys.scoreRanksReady(boardId)),
+    redis.del(`ab:v1:scoreRanks:${boardId}`),
+    redis.del(`ab:v1:scoreRanksReady:${boardId}`),
     redis.del(keys.comments(boardId)),
   ];
   if (commentIds.length) cleanup.push(redis.hDel(keys.commentRefs, commentIds));

@@ -18,6 +18,7 @@ import {
   accuracyFor,
   formatAccuracyPercent,
   formatAutomaticScoreComment,
+  formatScore,
   formatTime,
   type Board,
 } from '../shared/game';
@@ -76,12 +77,11 @@ const ResultSummary = ({
   showBest?: boolean;
 }) => (
   <div className="result-summary">
-    <h1>{result.score.toLocaleString('en-US')}</h1>
+    <h1>{formatScore(result.score)}</h1>
     {showBest && (
       <p>
         Best score:{' '}
-        {result.ranking.best?.score.toLocaleString('en-US') ??
-          result.score.toLocaleString('en-US')}
+        {formatScore(result.ranking.best?.score ?? result.score)}
       </p>
     )}
     <p>Better than {result.ranking.percentile ?? 0}% of players</p>
@@ -127,9 +127,11 @@ const PlayView = ({
   const canvas = useRef<HTMLCanvasElement>(null);
   const engine = useRef<ArtBreakerEngine | null>(null);
   const mutedRef = useRef(muted);
-  mutedRef.current = muted;
+  useEffect(() => {
+    mutedRef.current = muted;
+  }, [muted]);
   const [hud, setHud] = useState<GameHud>({
-    score: 0,
+    score: '0',
     combo: 0,
     remaining: board.cells.filter(Boolean).length,
   });
@@ -215,7 +217,7 @@ const PlayView = ({
         <div className="play-hud">
           <div>
             <small>SCORE</small>
-            <strong>{displayedScore.toLocaleString('en-US')}</strong>
+            <strong>{formatScore(displayedScore)}</strong>
           </div>
           <div>
             <small>COMBO</small>
@@ -288,7 +290,7 @@ const PlayView = ({
               aria-live="polite"
             >
               <span className="clear-kicker">BOARD CLEAR</span>
-              <strong>{clearResult.baseScore.toLocaleString('en-US')}</strong>
+              <strong>{formatScore(clearResult.baseScore)}</strong>
               <div className="clear-bonus-lines">
                 <p
                   className={clearStage >= 1 ? 'is-visible' : ''}
@@ -319,7 +321,7 @@ const PlayView = ({
                 aria-hidden={clearStage < 4}
               >
                 <small>FINAL SCORE</small>
-                <strong>{clearResult.score.toLocaleString('en-US')}</strong>
+                <strong>{formatScore(clearResult.score)}</strong>
               </div>
               <div className="clear-next-slot">
                 <button
@@ -1022,7 +1024,7 @@ const Leaderboard = ({
                     </b>
                   )}
                 </span>
-                <strong>{entry.score.toLocaleString('en-US')}</strong>
+                <strong>{formatScore(entry.score)}</strong>
                 <small>{formatTime(entry.elapsedMs)}</small>
               </li>
             ))
