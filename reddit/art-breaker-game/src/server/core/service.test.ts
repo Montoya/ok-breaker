@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest';
 import { redis } from '@devvit/web/server';
-import type { Board, ScoreRecord } from '../../shared/game';
+import { pointsForCombo, scoreForClear, type Board, type ScoreRecord } from '../../shared/game';
 import { test } from '../test';
 import { ensureSeedPublished } from './publication';
 import { SHARE_IMAGE_URL } from './share-image';
@@ -8,6 +8,7 @@ import {
   boardTitle,
   discoverBoards,
   leaderboardFor,
+  submitScore,
   stickyCommentFor,
 } from './service';
 import {
@@ -84,6 +85,64 @@ test('a leaderboard with one player reports a 100 percentile', async () => {
 
   expect(ranking.totalPlayers).toBe(1);
   expect(ranking.percentile).toBe(100);
+});
+
+test('a legitimate huge clear is saved and appears on the leaderboard', async ({ userId }) => {
+  const target = { ...board('user'), id: 'huge-clear-submission-board' };
+  await saveBoard(target);
+  const baseScore = Array.from({ length: target.cells.length }, (_, combo) =>
+    pointsForCombo(combo)
+  ).reduce((sum, points) => sum + points, 0n);
+  const score = scoreForClear(baseScore, 1, 1);
+  expect(score).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
+
+  const result = await submitScore('test-device-id', {
+    boardId: target.id,
+    score: score.toString(),
+    baseScore: baseScore.toString(),
+    elapsedMs: 43_000,
+    cleared: true,
+    brickHits: target.cells.length,
+    paddleHits: 1,
+    accuracyHits: 1,
+    accuracyAttempts: 1,
+    pickups: 0,
+  });
+
+  expect(result.saved).toBe(true);
+  expect(result.leaderboard.entries[0]?.score).toBe(score.toString());
+  expect((await leaderboardFor(target.id, userId, 0)).currentRank).toBe(1);
+});
+
+test('a huge uncleared score supplied as decimal strings is saved', async ({ userId }) => {
+  const target: Board = {
+    ...board('user'),
+    id: 'huge-uncleared-submission-board',
+    columns: 20,
+    rows: 18,
+    cells: [
+      ...new Array<number>(300).fill(1),
+      ...new Array<number>(60).fill(0),
+    ],
+  };
+  await saveBoard(target);
+  const score = '57359611293192867217';
+  const result = await submitScore('test-device-id', {
+    boardId: target.id,
+    score,
+    baseScore: score,
+    elapsedMs: 64_000,
+    cleared: false,
+    brickHits: 296,
+    paddleHits: 2,
+    accuracyHits: 0,
+    accuracyAttempts: 0,
+    pickups: 0,
+  });
+
+  expect(result.saved).toBe(true);
+  expect(result.leaderboard.entries[0]?.score).toBe(score);
+  expect((await leaderboardFor(target.id, userId, 0)).currentRank).toBe(1);
 });
 
 test('leaderboard keeps adjacent huge scores in their exact order', async () => {

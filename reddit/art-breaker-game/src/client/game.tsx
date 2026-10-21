@@ -42,6 +42,7 @@ type View =
   | 'score-loading'
   | 'create'
   | 'result-sign-in'
+  | 'result-save-error'
   | 'result-join'
   | 'result-comment'
   | 'result-share'
@@ -495,6 +496,7 @@ export const App = () => {
       );
       setShareAttempted(false);
       setLeaderboardPage(0);
+      setNotice('');
       setView('score-loading');
       void trpc.scores.submit
         .mutate({ deviceId, run: { boardId, ...result } })
@@ -524,26 +526,14 @@ export const App = () => {
                 : 'result-join'
           );
         })
-        .catch(async (error) => {
-          const currentSession =
-            session ??
-            (await sessionRequest.current?.catch(() => null)) ??
-            null;
+        .catch((error) => {
           const ranking = EMPTY_RANKING;
-          leaderboardCache.current.set(
-            leaderboardCacheKey(boardId, 0),
-            ranking
-          );
           setNotice(messageOf(error));
           setCompleted({ ...result, ranking });
-          setView(
-            !currentSession?.user.authenticated
-              ? 'result-sign-in'
-              : 'result-comment'
-          );
+          setView('result-save-error');
         });
     },
-    [activeBoard, deviceId, prefetchLeaderboard, session, view]
+    [activeBoard, deviceId, prefetchLeaderboard, view]
   );
 
   const toggleSound = () => {
@@ -818,6 +808,19 @@ export const App = () => {
               </ArcadeButton>
               <ArcadeButton onClick={() => setView('results')}>
                 SKIP
+              </ArcadeButton>
+            </div>
+          </div>
+        </ResultShell>
+      )}
+      {completed && view === 'result-save-error' && (
+        <ResultShell result={completed} showBest={false}>
+          <div className="result-prompt">
+            <h2>Score not saved</h2>
+            <p>{notice || 'Your score could not be saved. Please try again.'}</p>
+            <div className="button-row">
+              <ArcadeButton tone="primary" onClick={() => finish(completed)}>
+                RETRY SAVE
               </ArcadeButton>
             </div>
           </div>

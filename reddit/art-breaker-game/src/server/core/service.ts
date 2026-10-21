@@ -479,14 +479,15 @@ export const submitScore = async (deviceId: string, raw: unknown) => {
   if (scoreValue(input.score) > (input.cleared ? maximumWithClearBonus : theoreticalMaximum))
     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid score.' });
   if (input.baseScore !== undefined) {
+    const baseScore = scoreValue(input.baseScore);
     const expectedScore = input.cleared
       ? scoreForClear(
-          input.baseScore,
+          baseScore,
           input.accuracyHits ?? 0,
           input.accuracyAttempts ?? 0
         )
-      : input.baseScore;
-    if (scoreValue(input.baseScore) > theoreticalMaximum || scoreValue(input.score) !== expectedScore)
+      : baseScore;
+    if (baseScore > theoreticalMaximum || scoreValue(input.score) !== expectedScore)
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid score.' });
   }
   if (!actor.authenticated) {

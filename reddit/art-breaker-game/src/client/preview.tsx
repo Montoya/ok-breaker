@@ -73,7 +73,11 @@ export const Preview = () => {
     localStorage.setItem('art-breaker-intended-view', view);
     if (view !== 'create' && data?.postId)
       cachePlayBoard(data.board, data.postId);
-    requestExpandedMode(event.nativeEvent, 'game');
+    requestExpandedMode(
+      event.nativeEvent,
+      'game',
+      view === 'create' ? { title: 'Create a board' } : undefined
+    );
   };
   const signIn = (event: MouseEvent<HTMLButtonElement>) => {
     setSignInDialog(false);
