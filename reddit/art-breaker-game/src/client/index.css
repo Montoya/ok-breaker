@@ -401,11 +401,13 @@ h2 {
   text-align: right;
 }
 .mini-stat-link {
+  width: 100%;
   padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
+  text-align: right;
 }
 .mini-stat strong {
   color: var(--lime);
