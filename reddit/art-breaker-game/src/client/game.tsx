@@ -1004,7 +1004,15 @@ const Leaderboard = ({
   onPage: (page: number) => Promise<void>;
 }) => (
   <section className="leaderboard">
-    <h2>Leaderboard</h2>
+    <div className="leaderboard-heading">
+      <h2>Leaderboard</h2>
+      {!loading && (
+        <span>
+          {ranking.totalPlayers.toLocaleString()}{' '}
+          {ranking.totalPlayers === 1 ? 'player' : 'players'}
+        </span>
+      )}
+    </div>
     {loading ? (
       <div
         className="screen-loading board-loading"

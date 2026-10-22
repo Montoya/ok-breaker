@@ -1466,9 +1466,22 @@ h2 {
   flex: 1 1 auto;
   margin: 32px 0 10px;
 }
-.leaderboard h2 {
+.leaderboard-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
+}
+.leaderboard-heading h2 {
+  margin: 0;
   font-size: 18px;
+}
+.leaderboard-heading span {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
 }
 .leaderboard ol {
   min-height: 0;
@@ -1680,7 +1693,7 @@ h2 {
     overflow: hidden;
     margin-top: 16px;
   }
-  .results-screen .leaderboard h2,
+  .results-screen .leaderboard-heading,
   .results-screen .leaderboard .pager {
     flex: none;
   }
@@ -1749,8 +1762,10 @@ h2 {
   .leaderboard {
     margin-top: 16px;
   }
-  .leaderboard h2 {
+  .leaderboard-heading {
     margin-bottom: 7px;
+  }
+  .leaderboard-heading h2 {
     font-size: 16px;
   }
   .leaderboard ol {
@@ -1829,8 +1844,10 @@ h2 {
     margin-top: 10px;
     margin-bottom: 6px;
   }
-  .leaderboard h2 {
+  .leaderboard-heading {
     margin-bottom: 5px;
+  }
+  .leaderboard-heading h2 {
     font-size: 14px;
   }
   .leaderboard ol {

@@ -462,8 +462,8 @@ export class ArtBreakerEngine {
   private activate(type: PowerUpName): void {
     const duration = POWER_UPS[type].duration ?? 0;
     if (type === 'wide' || type === 'narrow') { this.paddleSize = type; this.paddleSizeUntil = this.simulationTime + duration; this.setPaddleWidth(BASE_PADDLE_WIDTH * (type === 'wide' ? 1.5 : 0.5)); }
-    if (type === 'slow') this.slowUntil = this.simulationTime + duration;
-    if (type === 'fast') this.fastUntil = this.simulationTime + duration;
+    if (type === 'slow') { this.fastUntil = 0; this.slowUntil = this.simulationTime + duration; }
+    if (type === 'fast') { this.slowUntil = 0; this.fastUntil = this.simulationTime + duration; }
     if (type === 'laser') { this.laserUntil = this.simulationTime + duration; this.shotTimer = 0; }
     if (type === 'shield') this.shieldUntil = this.simulationTime + duration;
     if (type === 'chain') this.chainUntil = this.simulationTime + duration;
