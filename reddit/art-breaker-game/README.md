@@ -103,9 +103,9 @@ Requirements:
 
 - Node.js 24.18.0 or newer; `.nvmrc` selects 24.18.0
 - npm
-- Devvit CLI and Web packages 0.14.4, updated to the latest available release
+- Devvit CLI and Web packages 0.15.0
 - A Reddit account enrolled in Reddit for Developers
-- Moderator access to `r/ArtBreaker`
+- Moderator access to `r/ArtBreakerBeta`
 
 Install dependencies and authenticate:
 
@@ -114,7 +114,7 @@ npm install
 npm run login
 ```
 
-The Devvit app slug is `art-breaker-game`. Development and playtest commands target `r/ArtBreaker` by default through `devvit.json`; `DEVVIT_SUBREDDIT` can override that target when needed.
+The Devvit app slug is `art-breaker-game`. Development and playtest commands target `r/ArtBreakerBeta` by default through `devvit.json`; `DEVVIT_SUBREDDIT` can override that target when needed.
 
 ```bash
 npm run dev
@@ -128,7 +128,7 @@ Run the local release checks with:
 npm test
 ```
 
-This runs TypeScript checks, ESLint, 50 Vitest tests, and the Vite production build. The individual commands are `npm run test:types`, `npm run lint`, `npm run test:unit`, and `npm run build`.
+This runs TypeScript checks, ESLint, 52 Vitest tests, and the Vite production build. The individual commands are `npm run test:types`, `npm run lint`, `npm run test:unit`, and `npm run build`.
 
 `npm run deploy` runs the verification commands and uploads a private version with `devvit upload`. `npm run launch` performs that upload and then invokes `devvit publish` to submit a version for review. Use `devvit publish --public` only when intentionally requesting an App Directory listing; the default publish request is unlisted.
 

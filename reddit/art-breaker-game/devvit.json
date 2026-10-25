@@ -2,7 +2,7 @@
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
   "name": "art-breaker-game",
   "dev": {
-    "subreddit": "ArtBreaker"
+    "subreddit": "ArtBreakerBeta"
   },
   "post": {
     "dir": "dist/client",
