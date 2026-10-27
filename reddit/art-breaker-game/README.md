@@ -49,7 +49,7 @@ The editor provides:
 
 **My Boards** lists the current user's drafts, queued moderator boards, and published boards. Drafts can be resumed or permanently erased. Published boards link to their Reddit posts.
 
-Publishing is a separate confirmation step. The optional board name must contain 3–22 Unicode graphemes; leaving it blank creates a post titled **Custom Art Breaker**. The client and server reject blocked terms, and the server rejects empty boards and duplicate cell layouts. A duplicate response links to the existing board when a canonical post is available.
+Publishing is a separate confirmation step. The optional board name must contain 3–22 Unicode graphemes; leaving it blank creates a post titled **Custom Art Breaker by u/[username]**. The client and server reject blocked terms, and the server rejects empty boards and duplicate cell layouts. A duplicate response links to the existing board when a canonical post is available.
 
 Immediate publication uses `runAs: 'USER'` and includes Devvit's `userGeneratedContent` metadata. The confirmation identifies the destination subreddit and tells the redditor that the post will use their Reddit username. During an unapproved playtest, Reddit may attribute most user actions to the app account; after approval, supported user actions run as the current redditor.
 

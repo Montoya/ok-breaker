@@ -51,6 +51,16 @@ describe('board publication copy', () => {
     );
   });
 
+  test('credits the creator in custom post titles, including unnamed boards', () => {
+    expect(boardTitle(board('user'))).toBe('Space Cat by u/pixel_artist');
+    expect(boardTitle({ ...board('user'), title: 'Custom Art Breaker' })).toBe(
+      'Custom Art Breaker by u/pixel_artist'
+    );
+    expect(boardTitle({ ...board('moderator'), title: 'Custom Art Breaker' })).toBe(
+      'Custom Art Breaker by u/pixel_artist'
+    );
+  });
+
   test('uses the custom-board comment with creator attribution', () => {
     expect(stickyCommentFor(board('user'))).toBe(
       "Let's go breakers! Can you get the high score in this custom board by u/pixel_artist? When you finish playing, submit a comment to share your score in this thread."

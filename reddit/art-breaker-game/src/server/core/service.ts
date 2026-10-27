@@ -247,8 +247,7 @@ export const claimBoardHash = async (
 };
 
 export const boardTitle = (board: Board): string => {
-  if (board.creatorRole === 'app' || board.title === 'Custom Art Breaker')
-    return board.title;
+  if (board.creatorRole === 'app') return board.title;
   return `${board.title} by u/${board.creatorUsername}`;
 };
 

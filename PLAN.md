@@ -128,7 +128,7 @@ Percentile is computed against unique players' best verified scores for that boa
 4. They can choose **Preview** between Save and Publish to inspect the board and play a full test run without saving or publishing it.
 5. Preview preserves the complete in-progress editor state. Leaving the test run, losing, or clearing the board returns directly to editing without submitting a score or showing any post-game result, join, comment, share, or leaderboard screen.
 6. From the editor they can keep the board as a draft or deliberately choose **Publish**.
-7. The publishing step offers an optional board-name field. If supplied, the Reddit post title is **[Board name] by u/[username]**. If left blank, the Reddit post title is exactly **Custom Art Breaker**; creator attribution still appears in the stickied comment and stored board metadata.
+7. The publishing step offers an optional board-name field. If supplied, the Reddit post title is **[Board name] by u/[username]**. If left blank, the Reddit post title is **Custom Art Breaker by u/[username]**; creator attribution also appears in the stickied comment and stored board metadata.
 8. Publishing runs validation and duplicate detection, then immediately creates the unique Reddit post.
 9. The app creates and stickies this comment on the new post:
 
