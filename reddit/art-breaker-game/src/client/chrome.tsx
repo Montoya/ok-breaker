@@ -10,12 +10,15 @@ export const Brand = () => (
   </span>
 );
 
-export const Header = ({ className, muted, onSound, subtitle }: { className?: string; muted: boolean; onSound: () => void; subtitle?: string }) => (
+export const Header = ({ className, muted, onSound, subtitle, afterSound }: { className?: string; muted: boolean; onSound: () => void; subtitle?: string; afterSound?: ReactNode }) => (
   <header className={`site-header${className ? ` ${className}` : ''}`}>
     <div className="header-copy"><Brand />{subtitle && <p className="preview-tagline">{subtitle}</p>}</div>
-    <button className="icon-button" type="button" aria-pressed={muted} aria-label={muted ? 'Turn sound on' : 'Mute sound'} onClick={onSound}>
-      <span className="sound-icon" aria-hidden="true">♪</span>
-    </button>
+    <div className="header-actions">
+      <button className="icon-button" type="button" aria-pressed={muted} aria-label={muted ? 'Turn sound on' : 'Mute sound'} onClick={onSound}>
+        <span className="sound-icon" aria-hidden="true">♪</span>
+      </button>
+      {afterSound}
+    </div>
   </header>
 );
 

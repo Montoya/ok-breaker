@@ -58,6 +58,7 @@ test('post deletion removes the board and every dependent Redis record', async (
     redis.hSet(keys.boardPost, { [board.id]: board.postId! }),
     redis.hSet(keys.boardHash, { [board.boardHash]: board.id }),
     redis.zAdd(keys.published, { member: board.id, score: board.updatedAt }),
+    redis.zAdd(keys.featuredQueue, { member: board.id, score: 1 }),
     redis.zAdd(keys.queue, { member: board.id, score: 1 }),
     redis.hSet(keys.publishedDays, { '2026-09-07': board.postId! }),
     redis.hSet(keys.comments(board.id), { submission: 't1_score' }),
@@ -85,6 +86,7 @@ test('post deletion removes the board and every dependent Redis record', async (
   expect(await redis.hGet(keys.commentRefs, 't1_sticky')).toBeUndefined();
   expect(await redis.hGetAll(keys.comments(board.id))).toEqual({});
   expect(await redis.zRange(keys.published, 0, -1, { by: 'rank' })).toEqual([]);
+  expect(await redis.zRange(keys.featuredQueue, 0, -1, { by: 'rank' })).toEqual([]);
   expect(await redis.zRange(keys.queue, 0, -1, { by: 'rank' })).toEqual([]);
   expect(await redis.zCard(keys.scoreRanks(board.id))).toBe(0);
   expect(await redis.get(keys.scoreRanksReady(board.id))).toBeUndefined();

@@ -26,6 +26,12 @@ export const keys = {
   published: 'ab:v1:published',
   queue: 'ab:v1:queue',
   publishedDays: 'ab:v1:publishedDays',
+  featuredQueue: 'ab:v1:featuredQueue',
+  featuredSequence: 'ab:v1:featuredSequence',
+  featuredPublished: 'ab:v1:featuredPublished',
+  featuredPostWeek: 'ab:v1:featuredPostWeek',
+  featuredIssue: (week: string) => `ab:v1:featuredIssue:${week}`,
+  featuredSelectionLock: (boardId: string) => `ab:v1:featuredSelectionLock:${boardId}`,
   seedPost: 'ab:v1:seedPost',
   seedComment: 'ab:v1:seedComment',
   subscriptions: 'ab:v1:subscriptions',
@@ -94,6 +100,9 @@ export const getPublishedBoards = async (): Promise<Board[]> => {
     Boolean(board?.postId && board.permalink && board.status === 'published')
   );
 };
+
+export const getFeaturedQueue = async () =>
+  redis.zRange(keys.featuredQueue, 0, -1, { by: 'rank' });
 
 export const saveDraft = async (
   userId: string,
@@ -295,6 +304,8 @@ export const deleteBoardForPost = async (postId: string): Promise<boolean> => {
     redis.hDel(keys.postBoard, [postId]),
     redis.hDel(keys.boardPost, [boardId]),
     redis.zRem(keys.published, [boardId]),
+    redis.zRem(keys.featuredQueue, [boardId]),
+    redis.del(keys.featuredSelectionLock(boardId)),
     redis.zRem(keys.queue, [boardId]),
     redis.del(keys.scores(boardId)),
     redis.del(keys.scoreRanks(boardId)),

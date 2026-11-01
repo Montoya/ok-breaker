@@ -26,12 +26,14 @@ import {
   requireModerator,
   resolveCurrentBoard,
   saveUserDraft,
+  setFeaturedBoard,
   sessionSummary,
   submitScore,
   takeQueuedBoardForEditing,
 } from './core/service';
 import { getBoard, keys, saveCommentReference } from './core/store';
 import { publishQueuedBoardNow } from './core/publication';
+import { featuredPage, featuredQueuePage } from './core/featured';
 
 const t = initTRPC.context<Context>().create({ transformer });
 export const router = t.router;
@@ -57,6 +59,20 @@ export const appRouter = t.router({
   bootstrap: publicProcedure
     .input(deviceInput)
     .query(({ input }) => bootstrap(input.deviceId)),
+  featured: t.router({
+    page: publicProcedure
+      .input(z.object({ page: z.number().int().min(0) }))
+      .query(({ input }) => featuredPage(input.page)),
+    queue: publicProcedure
+      .input(z.object({
+        page: z.number().int().min(0),
+        take: z.union([z.literal(4), z.literal(6)]),
+      }))
+      .query(({ input }) => featuredQueuePage(input.page, input.take)),
+    set: publicProcedure
+      .input(z.object({ boardId: z.string().min(1).max(100), enabled: z.boolean() }))
+      .mutation(({ input }) => setFeaturedBoard(input.boardId, input.enabled)),
+  }),
   session: t.router({
     summary: publicProcedure
       .input(deviceInput)
@@ -103,10 +119,11 @@ export const appRouter = t.router({
           currentId: z.string().min(1).max(100),
           page: z.number().int().min(0).max(24),
           take: z.union([z.literal(4), z.literal(6)]),
+          sort: z.enum(['latest', 'popular', 'most-played']).default('latest'),
         })
       )
       .query(({ input }) =>
-        discoverBoards(input.currentId, input.page, input.take)
+        discoverBoards(input.currentId, input.page, input.take, input.sort)
       ),
   }),
   scores: t.router({

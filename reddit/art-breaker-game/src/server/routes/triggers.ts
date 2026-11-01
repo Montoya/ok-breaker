@@ -9,6 +9,7 @@ import type {
 import { ensureSeedPublished } from '../core/publication';
 import { syncPublishedPostShareImages } from '../core/share-image';
 import { deleteBoardForPost, deleteCommentReference } from '../core/store';
+import { deleteFeaturedIssueForPost } from '../core/featured';
 
 export const triggers = new Hono();
 
@@ -49,7 +50,8 @@ triggers.post('/on-app-upgrade', async (c) => {
 triggers.post('/on-post-delete', async (c) => {
   try {
     const input = await c.req.json<OnPostDeleteRequest>();
-    await deleteBoardForPost(input.postId);
+    if (!(await deleteFeaturedIssueForPost(input.postId)))
+      await deleteBoardForPost(input.postId);
     return c.json<TriggerResponse>({ status: 'success' }, 200);
   } catch (error) {
     console.error('Art Breaker post-deletion cleanup failed.', error);

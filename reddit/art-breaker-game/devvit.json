@@ -13,6 +13,10 @@
       },
       "game": {
         "entry": "game.html"
+      },
+      "featured": {
+        "inline": true,
+        "entry": "featured.html"
       }
     }
   },
@@ -43,6 +47,10 @@
     "tasks": {
       "daily-publish": {
         "endpoint": "/internal/scheduler/daily-publish",
+        "cron": "*/5 * * * *"
+      },
+      "weekly-featured": {
+        "endpoint": "/internal/scheduler/weekly-featured",
         "cron": "*/5 * * * *"
       }
     }

@@ -14,6 +14,7 @@ import {
   EDITOR_PALETTE_ORDER,
   EDITOR_ROWS,
   FORMAT_VERSION,
+  MIN_PUBLISH_BRICKS,
   PALETTE,
   RULESET_VERSION,
   gameplaySeedFor,
@@ -67,6 +68,7 @@ export const Editor = ({
     useState<BoardNameIssue>(null);
   const [publishError, setPublishError] = useState('');
   const [publishComplete, setPublishComplete] = useState(false);
+  const [brickMinimumDialog, setBrickMinimumDialog] = useState(false);
   const [section, setSection] = useState<'draw' | 'mine' | 'admin'>('draw');
   const [myBoards, setMyBoards] = useState<MyBoards | null>(null);
   const [myBoardsLoading, setMyBoardsLoading] = useState(false);
@@ -254,6 +256,10 @@ export const Editor = ({
     }
   };
   const openPublish = (mode: 'user' | 'now' | 'queue') => {
+    if (cellsRef.current.filter(Boolean).length < MIN_PUBLISH_BRICKS) {
+      setBrickMinimumDialog(true);
+      return;
+    }
     setPublishName(title.trim());
     setPublishValidation(null);
     setPublishError('');
@@ -532,14 +538,14 @@ export const Editor = ({
             <>
               <ArcadeButton
                 tone="blue"
-                disabled={!count || busy}
+                disabled={busy}
                 onClick={() => openPublish('now')}
               >
                 PUBLISH
               </ArcadeButton>
               <ArcadeButton
                 tone="blue"
-                disabled={!count || busy}
+                disabled={busy}
                 onClick={() => openPublish('queue')}
               >
                 QUEUE
@@ -548,7 +554,7 @@ export const Editor = ({
           ) : (
             <ArcadeButton
               tone="blue"
-              disabled={!count || busy}
+              disabled={busy}
               onClick={() => openPublish('user')}
             >
               PUBLISH
@@ -556,6 +562,24 @@ export const Editor = ({
           )}
         </div>
       </div>
+      {brickMinimumDialog && (
+        <div className="modal-backdrop">
+          <section
+            className="publish-modal brick-minimum-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="brick-minimum-title"
+          >
+            <h2 id="brick-minimum-title">More bricks needed</h2>
+            <p>Boards with fewer than 12 bricks are not allowed. Add more bricks and try again.</p>
+            <div className="button-row">
+              <ArcadeButton tone="primary" onClick={() => setBrickMinimumDialog(false)}>
+                OK
+              </ArcadeButton>
+            </div>
+          </section>
+        </div>
+      )}
       {publishDialog && (
         <div className="modal-backdrop">
           <section

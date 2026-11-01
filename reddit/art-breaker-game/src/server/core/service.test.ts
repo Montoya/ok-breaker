@@ -1,13 +1,15 @@
 import { describe, expect } from 'vitest';
-import { redis } from '@devvit/web/server';
+import { reddit, redis } from '@devvit/web/server';
 import { pointsForCombo, scoreForClear, type Board, type ScoreRecord } from '../../shared/game';
 import { test } from '../test';
 import { ensureSeedPublished } from './publication';
 import { SHARE_IMAGE_URL } from './share-image';
 import {
   boardTitle,
+  createBoardRecord,
   discoverBoards,
   leaderboardFor,
+  publishBoardPost,
   submitScore,
   stickyCommentFor,
 } from './service';
@@ -36,6 +38,30 @@ const board = (creatorRole: Board['creatorRole']): Board => ({
   status: 'published',
   createdAt: 1,
   updatedAt: 1,
+});
+
+test('publishing and queueing require 12 bricks while a smaller draft remains valid', async () => {
+  const original = Object.getOwnPropertyDescriptor(reddit, 'getCurrentUser');
+  Object.defineProperty(reddit, 'getCurrentUser', { configurable: true, value: async () => null });
+  const cells = new Array<number>(20 * 18).fill(0);
+  cells.fill(1, 0, 11);
+  try {
+    const input = { cells, title: 'Small Board' };
+    expect((await createBoardRecord('test-device-id', input, 'draft')).cells.filter(Boolean)).toHaveLength(11);
+    await expect(createBoardRecord('test-device-id', input, 'queued'))
+      .rejects.toMatchObject({ code: 'BAD_REQUEST', message: 'Boards with fewer than 12 bricks are not allowed. Add more bricks and try again.' });
+    await expect(createBoardRecord('test-device-id', input, 'publishing'))
+      .rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(publishBoardPost({ ...board('user'), cells: [...cells], columns: 20, rows: 18, status: 'queued' }, 'APP'))
+      .rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+    cells[11] = 1;
+    const accepted = await createBoardRecord('test-device-id', input, 'queued');
+    expect(accepted.cells.filter(Boolean)).toHaveLength(12);
+  } finally {
+    if (original) Object.defineProperty(reddit, 'getCurrentUser', original);
+    else Reflect.deleteProperty(reddit, 'getCurrentUser');
+  }
 });
 
 describe('board publication copy', () => {
@@ -403,6 +429,48 @@ test('discovery includes Rainbow No. 1 from other boards even when its legacy in
     'newest-board',
     'rainbow-no-1',
   ]);
+});
+
+test('most played ranks recent boards by distinct players and excludes older boards', async () => {
+  const now = Date.now();
+  const recent = ['one', 'two', 'three'].map((id, index) => ({
+    ...board('user'),
+    id,
+    postId: `t3_${id}`,
+    permalink: `/r/ArtBreaker/comments/${id}`,
+    updatedAt: now - (index + 1) * 60_000,
+  }));
+  const old = {
+    ...board('user'),
+    id: 'old',
+    postId: 't3_old',
+    permalink: '/r/ArtBreaker/comments/old',
+    updatedAt: now - 8 * 24 * 60 * 60 * 1000,
+  };
+  for (const item of [...recent, old]) {
+    await saveBoard(item);
+    await redis.zAdd(keys.published, { member: item.id, score: item.updatedAt });
+  }
+  for (const [boardId, players] of [['one', 1], ['two', 3], ['three', 2], ['old', 5]] as const) {
+    for (let index = 0; index < players; index += 1) {
+      await saveScore({
+        boardId,
+        userId: `player-${index}`,
+        username: `player_${index}`,
+        score: 100,
+        elapsedMs: 1000,
+        cleared: false,
+        brickHits: 1,
+        paddleHits: 1,
+        pickups: 0,
+        achievedAt: now,
+      });
+    }
+  }
+  const first = await discoverBoards('current-board', 0, 4, 'most-played');
+  expect(first.boards.map((item) => item.id)).toEqual(['two', 'three', 'one']);
+  expect(first.pages).toBe(1);
+  expect((await discoverBoards('current-board', 0, 4)).boards[0]?.id).toBe('one');
 });
 
 test('mobile discovery uses Rainbow No. 1 only when the 100-board window has room', async () => {

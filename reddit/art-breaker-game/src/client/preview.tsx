@@ -29,6 +29,8 @@ export const Preview = () => {
     () => localStorage.getItem('art-breaker-sound') === 'off'
   );
   const [signInDialog, setSignInDialog] = useState(false);
+  const [featurePending, setFeaturePending] = useState(false);
+  const [featureError, setFeatureError] = useState('');
   useEffect(() => {
     let active = true;
     void trpc.bootstrap
@@ -62,6 +64,24 @@ export const Preview = () => {
     setMuted(next);
     localStorage.setItem('art-breaker-sound', next ? 'off' : 'on');
   };
+  const toggleFeatured = async () => {
+    if (!data || featurePending) return;
+    setFeaturePending(true);
+    setFeatureError('');
+    try {
+      const result = await trpc.featured.set.mutate({
+        boardId: data.board.id,
+        enabled: !data.featured,
+      });
+      setData((current) => current?.board.id === data.board.id
+        ? { ...current, featured: result.featured }
+        : current);
+    } catch (toggleError) {
+      setFeatureError(messageOf(toggleError));
+    } finally {
+      setFeaturePending(false);
+    }
+  };
   const open = (
     event: MouseEvent<HTMLButtonElement>,
     view: 'play' | 'create' | 'leaderboard'
@@ -89,7 +109,20 @@ export const Preview = () => {
         muted={muted}
         onSound={toggleSound}
         subtitle="Make art... and then break it!"
+        afterSound={data?.user.moderator && data.board.creatorRole !== 'app' && data.board.postId ? (
+          <button
+            className="icon-button featured-toggle"
+            type="button"
+            aria-pressed={data.featured}
+            aria-label={data.featured ? 'Remove board from featured list' : 'Feature this board'}
+            disabled={featurePending}
+            onClick={() => void toggleFeatured()}
+          >
+            <span aria-hidden="true">{data.featured ? '★' : '☆'}</span>
+          </button>
+        ) : undefined}
       />
+      {featureError && <p className="feature-notice" role="alert">{featureError}</p>}
       <article className="post-card">
         {data ? (
           <>

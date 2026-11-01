@@ -30,6 +30,7 @@ export const PALETTE = [
 ] as const;
 
 export const EDITOR_PALETTE_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 11, 12] as const;
+export const MIN_PUBLISH_BRICKS = 12;
 
 export const powerUpNames = ['wide', 'narrow', 'slow', 'shield', 'laser', 'fast', 'multi', 'fire', 'chain'] as const;
 export type PowerUpName = (typeof powerUpNames)[number];

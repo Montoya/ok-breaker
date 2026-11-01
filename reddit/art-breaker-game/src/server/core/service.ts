@@ -1,12 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { context, reddit, redis } from '@devvit/web/server';
 import { TRPCError } from '@trpc/server';
+import { T3 } from '@devvit/shared-types/tid.js';
 import {
   EDITOR_COLUMNS,
   EDITOR_ROWS,
   FORMAT_VERSION,
   LEGACY_COLUMNS,
   LEGACY_ROWS,
+  MIN_PUBLISH_BRICKS,
   RULESET_VERSION,
   boardInputSchema,
   canonicalBoard,
@@ -156,6 +158,11 @@ export const createBoardRecord = async (
 ): Promise<Board> => {
   const actor = await requireActor(deviceId);
   const parsed = boardInputSchema.parse(input);
+  if (status !== 'draft' && parsed.cells.filter(Boolean).length < MIN_PUBLISH_BRICKS)
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Boards with fewer than 12 bricks are not allowed. Add more bricks and try again.',
+    });
   const moderator = await isModerator();
   const now = Date.now();
   const boardHash = hashCells(parsed.cells, EDITOR_COLUMNS, EDITOR_ROWS);
@@ -261,6 +268,11 @@ export const publishBoardPost = async (
   runAs: 'USER' | 'APP'
 ): Promise<Board> => {
   if (board.postId && board.status === 'published') return board;
+  if (board.cells.filter(Boolean).length < MIN_PUBLISH_BRICKS)
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Boards with fewer than 12 bricks are not allowed. Add more bricks and try again.',
+    });
   const duplicate = await claimBoardHash(board);
   if (duplicate?.permalink) {
     throw new TRPCError({
@@ -529,21 +541,47 @@ export const bootstrap = async (deviceId: string) => {
     resolveCurrentBoard(),
     getActor(deviceId),
   ]);
-  const ranking = await leaderboardFor(
-    board.id,
-    actor.authenticated ? actor.id : null,
-    0
-  );
+  const [ranking, moderator] = await Promise.all([
+    leaderboardFor(board.id, actor.authenticated ? actor.id : null, 0),
+    actor.authenticated ? isModerator() : false,
+  ]);
   return {
     board,
     user: {
       username: actor.authenticated ? actor.username : null,
       authenticated: actor.authenticated,
+      moderator,
     },
+    featured: moderator && (await redis.zScore(keys.featuredQueue, board.id)) !== undefined,
     subredditName: context.subredditName,
     postId: context.postId,
     ranking,
   };
+};
+
+export const setFeaturedBoard = async (boardId: string, enabled: boolean) => {
+  await requireModerator();
+  const board = await getBoard(boardId);
+  if (!board || board.status !== 'published' || !board.postId || !board.permalink ||
+    board.creatorRole === 'app' || board.postId !== context.postId)
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Published community board unavailable.' });
+  const lockKey = keys.featuredSelectionLock(boardId);
+  const lock = await redis.set(lockKey, '1', {
+    nx: true, expiration: new Date(Date.now() + 5_000),
+  });
+  if (lock !== 'OK') throw new TRPCError({ code: 'CONFLICT', message: 'Featured list is busy. Try again.' });
+  try {
+    const current = await redis.zScore(keys.featuredQueue, boardId);
+    if (enabled && current === undefined) {
+      const sequence = await redis.incrBy(keys.featuredSequence, 1);
+      await redis.zAdd(keys.featuredQueue, { member: boardId, score: sequence });
+    } else if (!enabled && current !== undefined) {
+      await redis.zRem(keys.featuredQueue, [boardId]);
+    }
+  } finally {
+    await redis.del(lockKey);
+  }
+  return { featured: enabled };
 };
 
 export const sessionSummary = async (deviceId: string) => {
@@ -593,25 +631,59 @@ export const myBoards = async (deviceId: string) => {
 export const discoverBoards = async (
   currentId: string,
   page: number,
-  take: number
+  take: number,
+  sort: 'latest' | 'popular' | 'most-played' = 'latest'
 ) => {
-  const [seed, indexedIds] = await Promise.all([
+  const [seed, published] = await Promise.all([
     ensureSeedBoard(),
-    getPublishedBoardIds(),
+    sort === 'latest'
+      ? getPublishedBoardIds().then((ids) => ids.map((member) => ({ member, score: 0 })))
+      : redis.zRange(keys.published, Date.now() - 7 * 24 * 60 * 60 * 1000, '+inf', {
+          by: 'score',
+        }),
   ]);
   const safeTake = Math.min(6, Math.max(4, take));
   const pageLimit = 25;
   const boardLimit = pageLimit * safeTake;
-  const publishedIds = indexedIds.filter(
-    (boardId) => boardId !== currentId && boardId !== seed.id
+  let publishedIds = published.map(({ member }) => member).filter(
+    (boardId) => boardId !== seed.id && (sort !== 'latest' || boardId !== currentId)
   );
-  if (
+  if (sort === 'latest' &&
     publishedIds.length < boardLimit &&
     currentId !== seed.id &&
     seed.status === 'published' &&
     seed.permalink
   )
     publishedIds.push(seed.id);
+  if (sort !== 'latest') {
+    const cacheKey = `ab:v1:discovery:${sort}`;
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      const eligible = new Set(publishedIds);
+      publishedIds = JSON.parse(cached).filter((boardId: string) => eligible.has(boardId));
+    } else {
+      const candidates = (await getBoardsById(publishedIds)).filter(
+        (board) => board.postId && board.permalink && board.status === 'published'
+      );
+      const ranked = await Promise.all(candidates.map(async (board) => ({
+        board,
+        value: sort === 'popular'
+          ? await reddit.getPostById(T3(board.postId)).then((post) => post.score).catch(() => 0)
+          : await redis.hLen(keys.scores(board.id)),
+      })));
+      const publishedAt = new Map(published.map(({ member, score }) => [member, score]));
+      ranked.sort((left, right) =>
+        right.value - left.value ||
+        (publishedAt.get(right.board.id) ?? 0) - (publishedAt.get(left.board.id) ?? 0) ||
+        left.board.id.localeCompare(right.board.id)
+      );
+      publishedIds = ranked.map(({ board }) => board.id);
+      await redis.set(cacheKey, JSON.stringify(publishedIds), {
+        expiration: new Date(Date.now() + 60_000),
+      });
+    }
+  }
+  publishedIds = publishedIds.filter((boardId) => boardId !== currentId);
   const safePage = Math.min(pageLimit - 1, Math.max(0, page));
   const pageIds = publishedIds.slice(
     safePage * safeTake,

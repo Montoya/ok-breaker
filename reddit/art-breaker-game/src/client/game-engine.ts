@@ -221,6 +221,16 @@ export class ArtBreakerEngine {
 
   pause(): void { if (this.state === 'running') this.state = 'paused'; }
 
+  quit(): 'submitted' | 'empty' | 'ignored' {
+    if (this.state !== 'paused') return 'ignored';
+    if (this.score === 0n) {
+      this.state = 'over';
+      return 'empty';
+    }
+    this.finish(false, true);
+    return 'submitted';
+  }
+
   destroy(): void {
     cancelAnimationFrame(this.frame);
     window.clearTimeout(this.finishTimer);
@@ -255,7 +265,6 @@ export class ArtBreakerEngine {
 
   private onKeyDown(event: KeyboardEvent): void {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); this.pointerActive = false; this.keys.add(event.key); }
-    if (event.key === ' ') { event.preventDefault(); void this.startOrResume(); }
   }
   private onKeyUp(event: KeyboardEvent): void { this.keys.delete(event.key); }
   private onVisibility(): void { if (document.hidden) this.pause(); this.lastTime = performance.now(); this.accumulator = 0; }
@@ -519,7 +528,7 @@ export class ArtBreakerEngine {
     this.floaters.push({ x, y, text: value, color, life: 0.75, maxLife: 0.75 });
   }
 
-  private finish(cleared: boolean): void {
+  private finish(cleared: boolean, immediate = false): void {
     if (this.state === 'over') return;
     this.state = 'over'; this.bullets = []; this.pickups = []; this.laserUntil = 0; this.shieldUntil = 0;
     this.shake = cleared ? 7 : 4; this.audio.effect(cleared ? 'win' : 'lose'); this.emitHud(true);
@@ -530,7 +539,8 @@ export class ArtBreakerEngine {
       ? scoreForClear(baseScore, this.accuracyHits, this.accuracyAttempts)
       : baseScore;
     const result = { score: score.toString(), baseScore: baseScore.toString(), elapsedMs: Math.round(this.simulationTime * 1000), cleared, brickHits: this.brickHits, paddleHits: this.paddleHits, accuracyHits: this.accuracyHits, accuracyAttempts: this.accuracyAttempts, pickups: this.pickupCount };
-    this.finishTimer = window.setTimeout(() => {
+    if (immediate) this.callbacks.onFinish(result);
+    else this.finishTimer = window.setTimeout(() => {
       this.finishTimer = 0;
       this.callbacks.onFinish(result);
     }, 460);

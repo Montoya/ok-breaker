@@ -36,6 +36,7 @@ type Ranking = inferRouterOutputs<AppRouter>['bootstrap']['ranking'];
 type Session = inferRouterOutputs<AppRouter>['session']['summary'];
 type EditorSession = inferRouterOutputs<AppRouter>['session']['editor'];
 type Discovery = inferRouterOutputs<AppRouter>['boards']['discover'];
+type DiscoverySort = 'latest' | 'popular' | 'most-played' | 'featured';
 type View =
   | 'play'
   | 'preview-play'
@@ -67,8 +68,9 @@ const leaderboardCacheKey = (boardId: string, page: number): string =>
 const discoveryCacheKey = (
   boardId: string,
   page: number,
-  take: number
-): string => `${boardId}:${take}:${page}`;
+  take: number,
+  sort: DiscoverySort
+): string => `${boardId}:${sort}:${take}:${page}`;
 
 const ResultSummary = ({
   result,
@@ -116,6 +118,7 @@ const PlayView = ({
   onSound,
   onEngine,
   onExit,
+  onEmptyQuit,
   onFinish,
 }: {
   board: Board;
@@ -123,6 +126,7 @@ const PlayView = ({
   onSound: () => void;
   onEngine: (engine: ArtBreakerEngine | null) => void;
   onExit?: () => void;
+  onEmptyQuit: () => void;
   onFinish: (result: RunResult) => void;
 }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -141,6 +145,7 @@ const PlayView = ({
   >('ready');
   const [clearResult, setClearResult] = useState<RunResult | null>(null);
   const [clearStage, setClearStage] = useState(0);
+  const [confirmQuit, setConfirmQuit] = useState(false);
   const finishGame = useCallback(
     (result: RunResult) => {
       if (!result.cleared) {
@@ -199,14 +204,19 @@ const PlayView = ({
   const moveInstruction = touchInput
     ? 'Move with your finger'
     : 'Move with your mouse or arrow keys';
-  const resumeAction = touchInput ? 'Tap' : 'Click';
   const start = async () => {
     await engine.current?.startOrResume();
+    setConfirmQuit(false);
     setStatus('running');
   };
   const pause = () => {
     engine.current?.pause();
+    setConfirmQuit(false);
     setStatus('paused');
+  };
+  const quit = () => {
+    const result = engine.current?.quit();
+    if (result === 'empty') onEmptyQuit();
   };
   const clearAccuracy = clearResult
     ? accuracyFor(clearResult.accuracyHits, clearResult.accuracyAttempts)
@@ -276,14 +286,11 @@ const PlayView = ({
             </button>
           )}
           {status === 'paused' && (
-            <button
+            <div
               className="game-overlay paused-overlay"
-              type="button"
-              onClick={() => void start()}
             >
-              <strong>Paused</strong>
-              <small>{resumeAction} to resume</small>
-            </button>
+              <strong>{confirmQuit ? 'Are you sure?' : 'Paused'}</strong>
+            </div>
           )}
           {clearResult && (
             <div
@@ -341,6 +348,21 @@ const PlayView = ({
           )}
         </div>
       </div>
+      {status === 'paused' && (
+        <div className="pause-actions">
+          {confirmQuit ? (
+            <>
+              <ArcadeButton onClick={() => setConfirmQuit(false)}>CANCEL</ArcadeButton>
+              <ArcadeButton tone="danger" onClick={quit}>YES, QUIT!</ArcadeButton>
+            </>
+          ) : (
+            <>
+              <ArcadeButton tone="danger" onClick={() => setConfirmQuit(true)}>QUIT</ArcadeButton>
+              <ArcadeButton tone="primary" onClick={() => void start()}>RESUME</ArcadeButton>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 };
@@ -375,6 +397,8 @@ export const App = () => {
   );
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
   const [morePage, setMorePage] = useState(0);
+  const [moreSort, setMoreSort] = useState<DiscoverySort>('latest');
+  const [moreModerator, setMoreModerator] = useState(false);
   const [createSignInDialog, setCreateSignInDialog] = useState(false);
   const engine = useRef<ArtBreakerEngine | null>(null);
   const hadCachedBoard = useRef(activeBoard !== null);
@@ -384,6 +408,7 @@ export const App = () => {
   const discoveryCache = useRef(new QueryCache<Discovery>(60_000));
   const leaderboardTarget = useRef('');
   const discoveryTarget = useRef('');
+  const discoveryRequest = useRef(0);
 
   const requestSession = useCallback(() => {
     const current = sessionRequest.current;
@@ -460,24 +485,28 @@ export const App = () => {
     [requestLeaderboard]
   );
   const requestDiscovery = useCallback(
-    (boardId: string, page: number, take: 4 | 6) =>
-      discoveryCache.current.load(discoveryCacheKey(boardId, page, take), () =>
+    (boardId: string, page: number, take: 4 | 6, sort: DiscoverySort) => {
+      if (sort === 'featured') return trpc.featured.queue.query({ page, take });
+      return discoveryCache.current.load(discoveryCacheKey(boardId, page, take, sort), () =>
         trpc.boards.discover.query({
           deviceId,
           currentId: boardId,
           page,
           take,
+          sort,
         })
-      ),
+      );
+    },
     [deviceId]
   );
   const prefetchDiscovery = useCallback(
-    (boardId: string, page: number, take: 4 | 6, pages: number) => {
+    (boardId: string, page: number, take: 4 | 6, sort: DiscoverySort, pages: number) => {
+      if (sort === 'featured') return;
       for (const adjacent of [page - 1, page + 1]) {
         if (adjacent < 0 || adjacent >= pages) continue;
-        const key = discoveryCacheKey(boardId, adjacent, take);
+        const key = discoveryCacheKey(boardId, adjacent, take, sort);
         if (discoveryCache.current.read(key)?.fresh) continue;
-        void requestDiscovery(boardId, adjacent, take).catch(() => undefined);
+        void requestDiscovery(boardId, adjacent, take, sort).catch(() => undefined);
       }
     },
     [requestDiscovery]
@@ -696,30 +725,45 @@ export const App = () => {
       return;
     void loadLeaderboard(0);
   }, [activeBoard, loadLeaderboard, standaloneRanking, view]);
-  const loadMore = async (page: number) => {
+  const quitEmptyRun = () => {
+    setCompleted(null);
+    setStandaloneRanking(null);
+    setView('leaderboard');
+    void loadLeaderboard(0);
+  };
+  const loadMore = async (page: number, sort: DiscoverySort = moreSort) => {
     if (!activeBoard) return;
+    if (page === 0 && sort === 'latest') {
+      if (editorSession) setMoreModerator(editorSession.user.moderator);
+      void requestEditorSession()
+        .then((data) => setMoreModerator(data.user.moderator))
+        .catch(() => undefined);
+    }
     const boardId = activeBoard.id;
     const take = matchMedia('(min-width: 700px)').matches ? 6 : 4;
-    const key = discoveryCacheKey(boardId, page, take);
-    const cached = discoveryCache.current.read(key);
+    const key = discoveryCacheKey(boardId, page, take, sort);
+    const requestId = ++discoveryRequest.current;
+    const cached = sort === 'featured' ? undefined : discoveryCache.current.read(key);
     discoveryTarget.current = key;
     setMorePage(page);
+    setMoreSort(sort);
     setNotice('');
     setView('more');
     if (cached) {
       setDiscovery(cached.data);
-      prefetchDiscovery(boardId, page, take, cached.data.pages);
+      prefetchDiscovery(boardId, page, take, sort, cached.data.pages);
       if (cached.fresh) return;
     } else {
       setDiscovery(null);
     }
     try {
-      const data = await requestDiscovery(boardId, page, take);
-      if (discoveryTarget.current !== key) return;
+      const data = await requestDiscovery(boardId, page, take, sort);
+      if (discoveryTarget.current !== key || discoveryRequest.current !== requestId) return;
       setDiscovery(data);
-      prefetchDiscovery(boardId, page, take, data.pages);
+      setMorePage(data.page);
+      prefetchDiscovery(boardId, page, take, sort, data.pages);
     } catch (error) {
-      if (!cached && discoveryTarget.current === key)
+      if (!cached && discoveryTarget.current === key && discoveryRequest.current === requestId)
         setNotice(messageOf(error));
     }
   };
@@ -769,6 +813,7 @@ export const App = () => {
           muted={muted}
           onSound={toggleSound}
           onEngine={onEngine}
+          onEmptyQuit={quitEmptyRun}
           onFinish={finish}
         />
       )}
@@ -779,6 +824,7 @@ export const App = () => {
           onSound={toggleSound}
           onEngine={onEngine}
           onExit={exitPreview}
+          onEmptyQuit={exitPreview}
           onFinish={finish}
         />
       )}
@@ -929,7 +975,7 @@ export const App = () => {
               <ArcadeButton tone="blue" onClick={openCreate}>
                 CREATE
               </ArcadeButton>
-              <ArcadeButton onClick={() => void loadMore(0)}>MORE</ArcadeButton>
+              <ArcadeButton onClick={() => void loadMore(0, 'latest')}>MORE</ArcadeButton>
             </div>
           </div>
         </section>
@@ -953,7 +999,7 @@ export const App = () => {
               <ArcadeButton tone="blue" onClick={openCreate}>
                 CREATE
               </ArcadeButton>
-              <ArcadeButton onClick={() => void loadMore(0)}>MORE</ArcadeButton>
+              <ArcadeButton onClick={() => void loadMore(0, 'latest')}>MORE</ArcadeButton>
             </div>
           </div>
         </section>
@@ -963,8 +1009,11 @@ export const App = () => {
           data={discovery}
           error={notice}
           page={morePage}
+          sort={moreSort}
+          moderator={moreModerator}
           onBack={() => setView(completed ? 'results' : 'leaderboard')}
           onPage={loadMore}
+          onSort={(sort) => void loadMore(0, sort)}
         />
       )}
       {createSignInDialog && (
@@ -1071,21 +1120,55 @@ const MoreBoards = ({
   data,
   error,
   page,
+  sort,
+  moderator,
   onBack,
   onPage,
+  onSort,
 }: {
   data: Discovery | null;
   error: string;
   page: number;
+  sort: DiscoverySort;
+  moderator: boolean;
   onBack: () => void;
   onPage: (page: number) => Promise<void>;
+  onSort: (sort: DiscoverySort) => void;
 }) => (
-  <section className="screen more-screen">
+  <section className="screen more-screen" aria-label="More boards">
     <div className="screen-header">
       <button className="back-button" type="button" onClick={onBack}>
         ←
       </button>
-      <h1>Play more boards</h1>
+      <div className={cn('more-sort-tabs', moderator && 'has-featured')} role="group" aria-label="Sort boards">
+        {([
+          ['latest', 'Latest'],
+          ['popular', 'Upvotes'],
+          ['most-played', 'Plays'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={cn('more-sort-tab', sort === value && 'selected')}
+            aria-pressed={sort === value}
+            aria-label={`${label}${value === 'latest' ? '' : ' in the last 7 days'}`}
+            onClick={() => onSort(value)}
+          >
+            {label}
+          </button>
+        ))}
+        {moderator && (
+          <button
+            type="button"
+            className={cn('more-sort-tab featured-tab', sort === 'featured' && 'selected')}
+            aria-pressed={sort === 'featured'}
+            aria-label="Featured boards for the next weekly post"
+            onClick={() => onSort('featured')}
+          >
+            <span aria-hidden="true">★</span>
+          </button>
+        )}
+      </div>
     </div>
     {!data && !error ? (
       <div
@@ -1120,7 +1203,10 @@ const MoreBoards = ({
               ))}
             </div>
           ) : (
-            <p className="notice">No more published boards yet.</p>
+            <p className="notice">{
+              sort === 'featured' ? 'No boards featured for the next weekly post.' :
+                sort === 'latest' ? 'No more published boards yet.' : 'No boards from the last 7 days yet.'
+            }</p>
           )}
         </div>
         <div className="pager">
