@@ -229,7 +229,7 @@ Play opens user-initiated expanded mode in `game.html`. Create does the same for
 - Treat the current Create interface and behavior in [`prototype/index.html`](prototype/index.html), [`prototype/styles.css`](prototype/styles.css), and the editor functions in [`prototype/app.js`](prototype/app.js) as the concrete reference for the production port.
 - Start with a blank, fully drawable 20 × 18 grid.
 - Every cell is editable, including the top two rows and the leftmost and rightmost columns. There are no protected margins for user-created boards.
-- Provide fourteen visible color swatches, including white, with a clearly indicated selection.
+- Provide two pages of thirteen color swatches each, including white, with a clearly indicated selection and a page arrow in the remaining slot.
 - Tap/click an empty cell to paint it with the selected color.
 - Tap/click a cell already painted with the selected color to erase it.
 - Painting a cell with a different selected color recolors it.
@@ -272,7 +272,7 @@ Use idempotency keys for install, publish, scheduled queue execution, stickied-c
 - `rulesetVersion`: physics/scoring/power-up rules used by the post.
 - `columns`: 20 for newly created version 1 boards; the legacy seed board remains 18 columns wide.
 - `rows`: 18 for newly created version 1 boards; the legacy seed board remains 16 rows high.
-- `cells`: row-major array of 360 values for new 20 × 18 boards or 288 values for the legacy 18 × 16 seed board; `0` is empty and `1..14` are palette indices.
+- `cells`: row-major array of 360 values for new 20 × 18 boards or 288 values for the legacy 18 × 16 seed board; `0` is empty and `1..26` are palette indices.
 - `boardHash`: SHA-256 of a canonical byte/string encoding containing the format version, dimensions, and cells.
 - `gameplaySeed`: stable 32-bit seed derived from the canonical dimensions and colored cell values using the documented version 1 algorithm. The prototype currently uses FNV-1a; preserve its output for existing boards even if `boardHash` uses a stronger identity hash. The seven-color rainbow board currently resolves to `ab56a7ef`.
 - Reddit record: post ID, author ID/name, creation timestamp, board hash, ruleset version, and optional derived statistics.
@@ -282,14 +282,14 @@ Validate on both client and server:
 - new user submissions must be exactly 20 × 18; 18 × 16 is accepted only for the canonical legacy seed record and compatible existing data;
 - dimensions and cell count must agree;
 - all 20 × 18 cells are valid drawing positions for new boards;
-- palette values limited to `0..14`;
+- palette values limited to `0..26`;
 - at least one brick;
 - payload size and schema version accepted;
 - hash recomputed server-side rather than trusted from the client.
 
 Use a unique server-side index/claim for `(formatVersion, boardHash)` so two simultaneous submissions cannot both publish. Reserve the hash, submit the Reddit post, then attach its post ID; release or reconcile abandoned reservations after a failed submission.
 
-### Version 1 palette
+### Palette
 
 Use a fixed, high-contrast retro palette with stable numeric IDs. The prototype palette is:
 
@@ -308,7 +308,7 @@ Use a fixed, high-contrast retro palette with stable numeric IDs. The prototype 
 13. pink
 14. brown
 
-Present the final five editor swatches in this order: hot pink, pink, brown, gray, white. This is a display order only; stable numeric color IDs must not change when the editor is rearranged.
+The first editor page ends with hot pink, pink, gray, white, then a Next arrow. The second page begins with a Previous arrow, followed by coral, peach, sand, tan, gold, olive, forest, teal, sky blue, navy, lavender, burgundy, and brown. New colors receive IDs 15–26; brown retains ID 14 even though it appears last. Display order must never change the numeric IDs of saved artwork.
 
 The exact hex values can be tuned before the schema is frozen, but IDs and values must never change for already-published boards. Empty cells use the dark playfield and are not a thirteenth color.
 
@@ -508,7 +508,7 @@ Important platform constraints:
 - Joining the current subreddit requires the `SUBSCRIBE_TO_SUBREDDIT` user-action permission and may fail until the app is approved. The development UI still attempts the real authenticated API path, treats pre-approval failure as a non-blocking no-op, and advances through the post-game sequence; persist subscribed state only after Reddit confirms success.
 - Creating or stickying instructional comments and submitting score comments must use the appropriate current Reddit APIs and permissions; verify exact moderator/app capabilities before implementation.
 - The displayed `u/[username]` attribution must come from authenticated Reddit identity, never client-supplied text.
-- The fourteen-color grid is constrained UGC, which is safer than free-form content, but the app still requires moderation, deletion, and intellectual-property consideration.
+- The 26-color grid is constrained UGC, which is safer than free-form content, but the app still requires moderation, deletion, and intellectual-property consideration.
 - Characters such as Pikachu or Mickey Mouse are examples of what users might draw, not bundled/promoted app artwork. Do not ship trademarked seed art or imply endorsement.
 - Add text fallbacks and accessible labels for custom posts.
 

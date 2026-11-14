@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLEAR_SCORE_MULTIPLIER, EDITOR_COLUMNS, EDITOR_ROWS, FORMAT_VERSION, LEGACY_COLUMNS, LEGACY_ROWS, POWER_UPS, accuracyFor, boardSchema, canonicalBoard, formatAccuracyPercent, formatAutomaticScoreComment, formatScore, gameplaySeedFor, makePowerPlan, makeSeedCells, pointsForCombo, resolveAccuracyAttempt, scoreForClear, scoreSchema } from './game';
+import { CLEAR_SCORE_MULTIPLIER, EDITOR_COLUMNS, EDITOR_PALETTE_PAGES, EDITOR_ROWS, FORMAT_VERSION, LEGACY_COLUMNS, LEGACY_ROWS, PALETTE, POWER_UPS, accuracyFor, boardInputSchema, boardSchema, canonicalBoard, formatAccuracyPercent, formatAutomaticScoreComment, formatScore, gameplaySeedFor, makePowerPlan, makeSeedCells, pointsForCombo, resolveAccuracyAttempt, scoreForClear, scoreSchema } from './game';
 
 describe('shared game rules', () => {
   it('keeps the seven-color seed stable', () => {
@@ -11,6 +11,25 @@ describe('shared game rules', () => {
 
   it('keeps new boards at 20 by 18', () => {
     expect(EDITOR_COLUMNS * EDITOR_ROWS).toBe(360);
+  });
+
+  it('keeps existing color IDs stable and exposes all 26 colors across two pages', () => {
+    expect(PALETTE[13]).toEqual({ name: 'Brown', hex: '#9a5b3f' });
+    expect(PALETTE).toHaveLength(26);
+    expect(EDITOR_PALETTE_PAGES.map((page) => page.length)).toEqual([13, 13]);
+    expect(EDITOR_PALETTE_PAGES[1][12]).toBe(14);
+    expect([...EDITOR_PALETTE_PAGES.flat()].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 26 }, (_, index) => index + 1)
+    );
+    expect(boardInputSchema.safeParse({
+      cells: new Array<number>(EDITOR_COLUMNS * EDITOR_ROWS).fill(26),
+    }).success).toBe(true);
+  });
+
+  it('keeps old board seeds stable and encodes new color IDs unambiguously', () => {
+    expect(canonicalBoard([1, 14], 2, 1)).toBe('v2:2x1:1e');
+    expect(canonicalBoard([1, 16], 2, 1)).not.toBe(canonicalBoard([17, 0], 2, 1));
+    expect(canonicalBoard([1, 16], 2, 1)).toBe('v2:2x1:wide:0110');
   });
 
   it('keeps power-up weights and durations stable', () => {

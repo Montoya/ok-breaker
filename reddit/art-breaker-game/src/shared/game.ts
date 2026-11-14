@@ -27,9 +27,24 @@ export const PALETTE = [
   { name: 'White', hex: '#f6f4eb' },
   { name: 'Pink', hex: '#ff91c8' },
   { name: 'Brown', hex: '#9a5b3f' },
+  { name: 'Coral', hex: '#ff7066' },
+  { name: 'Peach', hex: '#ffb98d' },
+  { name: 'Sand', hex: '#e5c58e' },
+  { name: 'Tan', hex: '#d3a26b' },
+  { name: 'Gold', hex: '#d8a52e' },
+  { name: 'Olive', hex: '#899b3a' },
+  { name: 'Forest', hex: '#238a58' },
+  { name: 'Teal', hex: '#159d9a' },
+  { name: 'Sky Blue', hex: '#78beff' },
+  { name: 'Navy', hex: '#3654a0' },
+  { name: 'Lavender', hex: '#b6a2ff' },
+  { name: 'Burgundy', hex: '#a33d59' },
 ] as const;
 
-export const EDITOR_PALETTE_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 11, 12] as const;
+export const EDITOR_PALETTE_PAGES = [
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 11, 12],
+  [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 14],
+] as const;
 export const MIN_PUBLISH_BRICKS = 12;
 
 export const powerUpNames = ['wide', 'narrow', 'slow', 'shield', 'laser', 'fast', 'multi', 'fire', 'chain'] as const;
@@ -147,8 +162,15 @@ export const makeSeedCells = (): number[] => {
   return cells;
 };
 
-export const canonicalBoard = (cells: number[], columns: number, rows: number): string =>
-  `v${FORMAT_VERSION}:${columns}x${rows}:${cells.map((value) => value.toString(16)).join('')}`;
+export const canonicalBoard = (cells: number[], columns: number, rows: number): string => {
+  // Preserve the original encoding, and therefore the hashes and gameplay seeds,
+  // for boards using only the original fourteen palette IDs.
+  const expandedPalette = cells.some((value) => value > 14);
+  const encodedCells = expandedPalette
+    ? `wide:${cells.map((value) => value.toString(16).padStart(2, '0')).join('')}`
+    : cells.map((value) => value.toString(16)).join('');
+  return `v${FORMAT_VERSION}:${columns}x${rows}:${encodedCells}`;
+};
 
 export const gameplaySeedFor = (cells: number[], columns: number, rows: number): string => {
   const input = canonicalBoard(cells, columns, rows);

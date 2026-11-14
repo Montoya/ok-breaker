@@ -44,7 +44,7 @@ Creating, saving, and publishing require a signed-in Reddit account. A signed-ou
 
 The editor provides:
 
-- A fully editable 20×18 grid and 14-color palette
+- A fully editable 20×18 grid and two-page, 26-color palette
 - Click or tap painting, drag painting, recoloring, and same-color erasing
 - Long-press flood fill and flood clear
 - Up to 100 undo states, plus redo and clear controls

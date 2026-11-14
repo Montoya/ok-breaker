@@ -940,17 +940,57 @@ h2 {
   border-color: var(--ink);
   transform: translateY(-3px);
 }
+.palette-page-button {
+  display: grid;
+  place-items: center;
+  border-color: var(--secondary-highlight) var(--secondary-shadow)
+    var(--secondary-shadow) var(--secondary-highlight);
+  background: var(--secondary-face);
+  color: var(--ink);
+}
+.palette-page-button:active {
+  border-color: var(--secondary-shadow) var(--secondary-highlight)
+    var(--secondary-highlight) var(--secondary-shadow);
+}
+.palette-page-button svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+.palette-page-button.previous svg {
+  transform: scaleX(-1);
+}
 .editor-tools {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   padding: 13px 10px 0;
 }
-.tool-button {
+.editor-tools .tool-button {
+  display: grid;
+  place-items: center;
   min-height: 38px;
-  flex: 1;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 0;
+}
+.editor-move-triangle {
+  display: block;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+}
+.editor-move-up .editor-move-triangle { border-bottom-color: var(--ink); transform: translateY(-3px); }
+.editor-move-down .editor-move-triangle { border-top-color: var(--ink); transform: translateY(3px); }
+.editor-move-left .editor-move-triangle { border-right-color: var(--ink); transform: translateX(-3px); }
+.editor-move-right .editor-move-triangle { border-left-color: var(--ink); transform: translateX(3px); }
+.editor-tool-icon,
+.editor-history-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+.editor-history-icon.redo {
+  transform: scaleX(-1);
 }
 .tool-button.danger {
   border-color: #ff9aa2 #731822 #731822 #ff9aa2;
@@ -1600,33 +1640,24 @@ h2 {
 }
 .pager button {
   min-height: 34px;
-  border: 3px solid var(--secondary-highlight);
-  background: var(--secondary-face);
-  cursor: pointer;
-  font-size: 9px;
-}
-.pager button:disabled {
-  opacity: 0.3;
-}
-.pager span {
-  color: var(--muted);
-  font-size: 10px;
-}
-.leaderboard .pager button,
-.more-screen .pager button {
-  min-height: 0;
   padding: 2px 0;
   border: 0;
   background: transparent;
   color: var(--blue);
+  cursor: pointer;
+  font-size: 10px;
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.leaderboard .pager button:disabled,
-.more-screen .pager button:disabled {
+.pager button:disabled {
   color: var(--muted);
+  cursor: not-allowed;
   text-decoration: none;
+}
+.pager span {
+  color: var(--muted);
+  font-size: 10px;
 }
 
 .more-screen {
@@ -1805,8 +1836,8 @@ h2 {
   min-height: 36px;
   margin: 0;
 }
-.featured-pager button {
-  font-size: 10px;
+.featured-pager button:disabled {
+  visibility: hidden;
 }
 
 @media (min-width: 700px) {

@@ -11,7 +11,7 @@ import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../server/trpc';
 import {
   EDITOR_COLUMNS,
-  EDITOR_PALETTE_ORDER,
+  EDITOR_PALETTE_PAGES,
   EDITOR_ROWS,
   FORMAT_VERSION,
   MIN_PUBLISH_BRICKS,
@@ -23,6 +23,7 @@ import {
 import { trpc } from './trpc';
 import { ArcadeButton, BoardLoader } from './chrome';
 import { BoardCanvas } from './board-canvas';
+import { moveArtwork, type MoveDirection } from './editor-move';
 import { cn, messageOf, redditUrl } from './utils';
 import { boardNameIssue, type BoardNameIssue } from '../shared/text-safety';
 
@@ -43,6 +44,37 @@ type EditorProps = {
 const blank = (): number[] =>
   new Array<number>(EDITOR_COLUMNS * EDITOR_ROWS).fill(0);
 
+const HistoryIcon = ({ redo = false }: { redo?: boolean }) => (
+  <svg
+    aria-hidden="true"
+    className={redo ? 'editor-history-icon redo' : 'editor-history-icon'}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.4"
+    strokeLinecap="square"
+    strokeLinejoin="miter"
+  >
+    <path d="M4 11a8 8 0 1 1 2.3 5.7" />
+    <path d="M4 5v6h6" />
+  </svg>
+);
+
+const ClearIcon = () => (
+  <svg
+    aria-hidden="true"
+    className="editor-tool-icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="square"
+    strokeLinejoin="miter"
+  >
+    <path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 10v6M14 10v6" />
+  </svg>
+);
+
 export const Editor = ({
   bootstrap,
   deviceId,
@@ -55,6 +87,11 @@ export const Editor = ({
   const [cells, setCellsState] = useState(blank);
   const cellsRef = useRef(cells);
   const [selected, setSelected] = useState(1);
+  const [palettePage, setPalettePage] = useState<0 | 1>(0);
+  const showPalettePage = (page: 0 | 1) => {
+    setPalettePage(page);
+    setSelected(EDITOR_PALETTE_PAGES[page][0]);
+  };
   const [undo, setUndo] = useState<number[][]>([]);
   const [redo, setRedo] = useState<number[][]>([]);
   const [title, setTitle] = useState('');
@@ -213,6 +250,13 @@ export const Editor = ({
     setUndo((items) => [...items, [...cells]]);
     setRedo([]);
     setCells(blank());
+  };
+  const move = (direction: MoveDirection) => {
+    const current = cellsRef.current;
+    if (!current.some(Boolean)) return;
+    setUndo((items) => [...items.slice(-99), [...current]]);
+    setRedo([]);
+    setCells(moveArtwork(current, direction));
   };
 
   const draftBoard = (): Board => ({
@@ -465,8 +509,21 @@ export const Editor = ({
             <span>COLOR: {PALETTE[selected - 1]?.name.toUpperCase()}</span>
             <span>{count} BRICKS</span>
           </div>
-          <div className="palette">
-            {EDITOR_PALETTE_ORDER.map((value) => (
+          <div className="palette" role="group" aria-label={`Colors, page ${palettePage + 1} of 2`}>
+            {palettePage === 1 && (
+              <button
+                type="button"
+                className="swatch palette-page-button previous"
+                aria-label="Previous colors"
+                title="Previous colors"
+                onClick={() => showPalettePage(0)}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter">
+                  <path d="M5 12h14m-6-6 6 6-6 6" />
+                </svg>
+              </button>
+            )}
+            {EDITOR_PALETTE_PAGES[palettePage].map((value) => (
               <button
                 key={value}
                 type="button"
@@ -477,32 +534,64 @@ export const Editor = ({
                 onClick={() => setSelected(value)}
               />
             ))}
+            {palettePage === 0 && (
+              <button
+                type="button"
+                className="swatch palette-page-button"
+                aria-label="Next colors"
+                title="Next colors"
+                onClick={() => showPalettePage(1)}
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter">
+                  <path d="M5 12h14m-6-6 6 6-6 6" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
-        <div className="editor-tools">
+        <div className="editor-tools" role="group" aria-label="Artwork tools">
+          {(['up', 'down', 'left', 'right'] as const).map((direction) => (
+            <button
+              key={direction}
+              className={`tool-button editor-move-${direction}`}
+              type="button"
+              aria-label={`Move artwork ${direction} one space`}
+              title={`Move artwork ${direction}`}
+              disabled={!count}
+              onClick={() => move(direction)}
+            >
+              <span className="editor-move-triangle" aria-hidden="true" />
+            </button>
+          ))}
           <button
             className="tool-button"
             type="button"
+            aria-label="Undo"
+            title="Undo"
             disabled={!undo.length}
             onClick={undoOnce}
           >
-            UNDO
+            <HistoryIcon />
           </button>
           <button
             className="tool-button"
             type="button"
+            aria-label="Redo"
+            title="Redo"
             disabled={!redo.length}
             onClick={redoOnce}
           >
-            REDO
+            <HistoryIcon redo />
           </button>
           <button
             className="tool-button danger"
             type="button"
+            aria-label="Clear artwork"
+            title="Clear artwork"
             disabled={!count}
             onClick={clear}
           >
-            CLEAR
+            <ClearIcon />
           </button>
         </div>
         <div
